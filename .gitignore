@@ -1,0 +1,33 @@
+# Environment variables
+.dev.vars
+
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+.wrangler/
+worker/
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

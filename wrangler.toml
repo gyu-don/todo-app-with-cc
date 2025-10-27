@@ -1,0 +1,47 @@
+# Cloudflare Workers Todo Application Configuration
+
+name = "cloudflare-workers-todo"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# Workers サイト設定は不要（APIのみ）
+# account_id と workers_dev はコマンドラインまたは環境変数で指定
+
+# 開発環境（デフォルト）
+# KV Namespace ID: wrangler kv:namespace create "TODO_KV" で作成済み
+[[kv_namespaces]]
+binding = "TODO_KV"
+id = "1e7da5919535438bb5ab8293aa7cdf19"
+
+# 環境変数（非シークレット）
+# セキュリティ上の理由から、API KeyやシークレットはここではなくCloudflare Dashboardまたは`wrangler secret`コマンドで設定してください
+[vars]
+# ALLOWED_ORIGINS = "*" # 開発環境ではワイルドカードを許可
+
+# 本番環境
+[env.production]
+
+# 本番環境のKV Namespace
+# KV Namespace ID: wrangler kv:namespace create "TODO_KV" --env production で作成済み
+[[env.production.kv_namespaces]]
+binding = "TODO_KV"
+id = "834ba3aa62f9434881397984a66b35b8"
+
+# 本番環境の環境変数
+# [env.production.vars]
+# 本番環境のCORS設定はシークレットとして管理することを推奨
+# セキュリティ上の理由から、特定のオリジンのみを許可してください
+# 設定方法: wrangler secret put ALLOWED_ORIGINS --env production
+
+# ビルド設定
+[build]
+command = "npm run build"
+
+# 開発サーバー設定
+[dev]
+port = 8787
+local_protocol = "http"
+
+# ログレベル
+# [observability]
+# enabled = true
