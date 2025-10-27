@@ -1,35 +1,22 @@
-import { describe, it, expect, beforeEach, vi, beforeAll } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { env } from 'cloudflare:test';
 import app from '../../src/index';
 
-// Mock Workers KV
-const mockKVNamespace = {
-  get: vi.fn(),
-  put: vi.fn(),
-  delete: vi.fn(),
-  list: vi.fn(),
-};
+// Workers poolの環境変数を使用
+// vitest.config.tsで設定された環境変数とKVバインディングが自動的に利用可能
 
-// Mock環境変数の設定
-beforeAll(() => {
-  // Honoアプリのenvを設定
-  (app as any).env = {
-    TODO_KV: mockKVNamespace,
-    VALID_API_KEYS: 'test-api-key',
-    ALLOWED_ORIGINS: '*',
-  };
-});
-
-beforeEach(() => {
-  // 各テストの前にモックをリセット
-  vi.clearAllMocks();
-  mockKVNamespace.get.mockResolvedValue(null);
-  mockKVNamespace.list.mockResolvedValue({ keys: [] });
+beforeEach(async () => {
+  // テスト前にKVを空にする
+  const keys = await env.TODO_KV.list();
+  for (const key of keys.keys) {
+    await env.TODO_KV.delete(key.name);
+  }
 });
 
 describe('API Integration Tests', () => {
   describe('Health Check', () => {
     it('should return health status without authentication', async () => {
-      const res = await app.request('/');
+      const res = await app.request('/', {}, env);
 
       expect(res.status).toBe(200);
       const body = await res.json();
@@ -44,7 +31,7 @@ describe('API Integration Tests', () => {
         headers: {
           Origin: 'https://example.com',
         },
-      });
+      }, env);
 
       expect(res.headers.get('Access-Control-Allow-Origin')).toBeDefined();
     });
@@ -52,7 +39,7 @@ describe('API Integration Tests', () => {
     it('should handle OPTIONS preflight request', async () => {
       const res = await app.request('/todos', {
         method: 'OPTIONS',
-      });
+      }, env);
 
       expect(res.status).toBe(204);
       expect(res.headers.get('Access-Control-Allow-Methods')).toBeDefined();
@@ -63,14 +50,12 @@ describe('API Integration Tests', () => {
     it('should reject requests without API key', async () => {
       const res = await app.request('/todos', {
         method: 'GET',
-      });
+      }, env);
 
-      // KV未設定の場合は500、認証エラーの場合は401
-      expect([401, 500]).toContain(res.status);
-      if (res.status === 401) {
-        const body = await res.json();
-        expect(body.error.code).toBe('UNAUTHORIZED');
-      }
+      // 認証エラーの場合は401
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body.error.code).toBe('UNAUTHORIZED');
     });
 
     it('should reject requests with invalid API key', async () => {
@@ -79,14 +64,12 @@ describe('API Integration Tests', () => {
         headers: {
           'X-API-Key': 'invalid-key',
         },
-      });
+      }, env);
 
-      // KV未設定の場合は500、認証エラーの場合は401
-      expect([401, 500]).toContain(res.status);
-      if (res.status === 401) {
-        const body = await res.json();
-        expect(body.error.code).toBe('UNAUTHORIZED');
-      }
+      // 認証エラーの場合は401
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body.error.code).toBe('UNAUTHORIZED');
     });
 
     it('should allow requests with valid API key', async () => {
@@ -95,11 +78,12 @@ describe('API Integration Tests', () => {
         headers: {
           'X-API-Key': 'test-api-key',
         },
-      });
+      }, env);
 
-      // 認証は通るはずだが、KVが未設定なので500エラーになる可能性がある
-      // または200 OK（空配列）が返る
-      expect([200, 500]).toContain(res.status);
+      // 認証は通るはず（200 OK、空配列）
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(Array.isArray(body)).toBe(true);
     });
   });
 
@@ -109,7 +93,7 @@ describe('API Integration Tests', () => {
         headers: {
           'X-API-Key': 'test-api-key',
         },
-      });
+      }, env);
 
       expect(res.status).toBe(404);
       const body = await res.json();
@@ -121,10 +105,10 @@ describe('API Integration Tests', () => {
     it('should return standardized error response format', async () => {
       const res = await app.request('/todos', {
         method: 'GET',
-      });
+      }, env);
 
-      // 401 or 500 depending on environment
-      expect([401, 500]).toContain(res.status);
+      // 認証エラー（401）
+      expect(res.status).toBe(401);
       const body = await res.json();
       expect(body).toHaveProperty('error');
       expect(body.error).toHaveProperty('code');
@@ -134,7 +118,7 @@ describe('API Integration Tests', () => {
     it('should not expose stack traces in error responses', async () => {
       const res = await app.request('/todos', {
         method: 'GET',
-      });
+      }, env);
 
       const body = await res.json();
       const bodyText = JSON.stringify(body);
@@ -152,10 +136,13 @@ describe('API Integration Tests', () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ title: 'Test Todo' }),
-      });
+      }, env);
 
-      // KVが未設定の場合は500、設定済みの場合は201
-      expect([201, 500]).toContain(res.status);
+      // KV設定済みなので201 Created
+      expect(res.status).toBe(201);
+      const body = await res.json();
+      expect(body).toHaveProperty('id');
+      expect(body).toHaveProperty('title', 'Test Todo');
     });
 
     it('should define GET /todos route', async () => {
@@ -164,10 +151,12 @@ describe('API Integration Tests', () => {
         headers: {
           'X-API-Key': 'test-api-key',
         },
-      });
+      }, env);
 
-      // KVが未設定の場合は500、設定済みの場合は200
-      expect([200, 500]).toContain(res.status);
+      // KV設定済みなので200 OK
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(Array.isArray(body)).toBe(true);
     });
 
     it('should define GET /todos/:id route', async () => {
@@ -176,10 +165,10 @@ describe('API Integration Tests', () => {
         headers: {
           'X-API-Key': 'test-api-key',
         },
-      });
+      }, env);
 
-      // KVが未設定の場合は500、設定済みの場合は404
-      expect([404, 500]).toContain(res.status);
+      // 存在しないので404
+      expect(res.status).toBe(404);
     });
 
     it('should define PUT /todos/:id route', async () => {
@@ -190,10 +179,10 @@ describe('API Integration Tests', () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ title: 'Updated' }),
-      });
+      }, env);
 
-      // KVが未設定の場合は500、設定済みの場合は404
-      expect([404, 500]).toContain(res.status);
+      // 存在しないので404
+      expect(res.status).toBe(404);
     });
 
     it('should define DELETE /todos/:id route', async () => {
@@ -202,10 +191,10 @@ describe('API Integration Tests', () => {
         headers: {
           'X-API-Key': 'test-api-key',
         },
-      });
+      }, env);
 
-      // KVが未設定の場合は500、設定済みの場合は404
-      expect([404, 500]).toContain(res.status);
+      // 存在しないので404
+      expect(res.status).toBe(404);
     });
   });
 });
