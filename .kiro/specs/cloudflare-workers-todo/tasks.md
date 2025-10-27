@@ -28,8 +28,8 @@
   - Cloudflare Workers型定義（@cloudflare/workers-types）をインストールする
   - _要件: 全要件に必要な型安全性の基盤_
 
-- [ ] 2. データモデルと型定義の作成
-- [ ] 2.1 Todoドメインモデルの定義
+- [x] 2. データモデルと型定義の作成
+- [x] 2.1 Todoドメインモデルの定義
   - Todo型（id、title、completed、createdAt）を定義する
   - CreateTodoRequestインターフェースを定義する
   - UpdateTodoRequestインターフェースを定義する
@@ -37,13 +37,13 @@
   - ビジネスルール（文字数制限、制御文字禁止等）をコメントで記載する
   - _要件: 1.1-1.5（Todo作成）、2.4（Todoフィールド）、13.3（データ構造）_
 
-- [ ] 2.2 エラーレスポンス型の定義
+- [x] 2.2 エラーレスポンス型の定義
   - ErrorResponseインターフェースを定義する
   - エラーコード型（VALIDATION_ERROR、UNAUTHORIZED、NOT_FOUND等）を定義する
   - 標準化されたエラー形式（error.code、error.message）を定義する
   - _要件: 7.2（エラーレスポンス形式）、14.1-14.6（エラーレスポンス標準化）_
 
-- [ ] 2.3 環境変数とバインディングの型定義
+- [x] 2.3 環境変数とバインディングの型定義
   - Envインターフェースを定義する
   - TODO_KV（KVNamespace型）バインディングを定義する
   - VALID_API_KEYS、ALLOWED_ORIGINS環境変数を定義する

@@ -4,15 +4,9 @@ import path from 'path';
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'miniflare',
-    environmentOptions: {
-      bindings: {
-        TODO_KV: 'TODO_KV',
-        VALID_API_KEYS: 'test-key-1,test-key-2',
-        ALLOWED_ORIGINS: '*',
-      },
-      kvNamespaces: ['TODO_KV'],
-    },
+    // Note: Using 'node' environment for now (type definition tests)
+    // Will switch to '@cloudflare/vitest-pool-workers' for integration tests
+    environment: 'node',
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
