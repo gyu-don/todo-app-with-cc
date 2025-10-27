@@ -40,22 +40,82 @@
     - エラーハンドリング
 
 ### データ永続化
-以下のいずれかのCloudflareストレージサービスを使用（設計フェーズで決定）:
 
-#### オプション1: Workers KV
-- **特性**: グローバル分散型Key-Valueストレージ
-- **適用場面**: 読み込み頻度が高く、書き込みが比較的少ない場合
-- **レイテンシー**: 読み込みは極めて高速、書き込みは eventual consistency
+#### 選定: Workers KV ⭐
 
-#### オプション2: Durable Objects
-- **特性**: 強い一貫性を持つステートフルオブジェクト
-- **適用場面**: トランザクションが必要な場合、リアルタイム性が重要な場合
-- **レイテンシー**: 強い一貫性保証
+**選定理由**:
+- **シンプルな実装**: Key-Value形式でTodoリストを保存、実装が最も容易
+- **高速な読み込み**: 10-50ms、パフォーマンス要件（< 50ms P95）を達成可能
+- **無料枠が大きい**: 100,000 read/日、1,000 write/日、利用者が少ない想定に適合
+- **エッジ最適化**: グローバル分散により、どの地域からも低レイテンシー
+- **MVPに最適**: Todoアプリケーションに必要な一貫性レベル（eventual consistency）で十分
 
-#### オプション3: D1
-- **特性**: SQLiteベースのサーバーレスデータベース
-- **適用場面**: リレーショナルデータ、複雑なクエリが必要な場合
-- **レイテンシー**: エッジで動作するSQLデータベース
+**特性**:
+- グローバル分散型Key-Valueストレージ
+- 読み込み: 極めて高速（10-50ms）
+- 書き込み: eventual consistency（数秒の遅延）
+- データ構造: JSON形式でTodo配列を保存
+
+**制約と対応**:
+- eventual consistency → Todoアプリでは許容可能（数秒の遅延は問題なし）
+- 1,000 write/日の制限 → 利用者少数の想定では十分
+
+**参考：他のオプション（今回不採用）**:
+- **Durable Objects**: 強い一貫性が必要な場合（今回は不要）
+- **D1**: 複雑なクエリやリレーショナルデータが必要な場合（今回は不要）
+
+### 認証・セキュリティ
+
+#### 認証方式（2段階）
+
+**1. Cloudflare Access（ブラウザアクセス用）** ⭐推奨
+- **対象**: 開発者やエンドユーザーのブラウザアクセス
+- **方式**: Email OTP、Google Login等
+- **設定**: Cloudflare Dashboard（コード変更不要）
+- **無料枠**: 最大5ユーザー
+- **メリット**:
+  - 実装コストゼロ
+  - OAuth2/OIDCへの将来的な移行が容易
+  - DoS対策も含まれる
+
+**2. 固定API Key（プログラマティックアクセス用）**
+- **対象**: CI/CD、スクリプト、自動化ツール
+- **方式**: HTTPヘッダー `X-API-Key` で認証
+- **設定**: 環境変数 `VALID_API_KEYS` で管理
+- **実装**:
+  ```typescript
+  // middleware/auth.ts
+  export const apiKeyAuth = async (c: Context, next: Next) => {
+    const apiKey = c.req.header('X-API-Key');
+    const validKeys = c.env.VALID_API_KEYS?.split(',') || [];
+
+    if (!apiKey || !validKeys.includes(apiKey)) {
+      return c.json({ error: { code: 'UNAUTHORIZED', message: 'Invalid API key' } }, 401);
+    }
+
+    await next();
+  };
+  ```
+
+**将来の拡張**: OAuth2/OIDC対応時も同じヘッダーベース認証パターンを継承可能
+
+#### DoS保護
+
+**レイヤー1: Cloudflare Bot Management（無料）**
+- 自動ボット検出・ブロック
+- 設定: Dashboard → Security → Bots
+
+**レイヤー2: Cloudflare Access（無料、最大5ユーザー）**
+- 認証済みユーザーのみアクセス許可
+- 不正アクセスを根本的に防止
+
+**レイヤー3: Workers無料枠制限（自動）**
+- 100,000 req/日の上限
+- 超過時に自動停止（予期しないコスト発生を防止）
+
+**将来の拡張（Phase 2）**:
+- Rate Limiting Rules: 100 req/分/IP等の詳細な制限
+- 有料プランでより柔軟な設定
 
 ## 開発環境
 
