@@ -15,6 +15,7 @@
 - Cloudflare Access + API Keyによる認証・認可を実装し、不正アクセスを防止する
 - エッジ処理50ms未満（P95）、ストレージアクセス込み200ms未満（P95）のレスポンスタイムを達成する
 - 入力検証とエラーハンドリングを適切に実装し、セキュリティと安定性を確保する
+- 最大500件のTodo項目をサポート（Workers KV List API制限1000件に対して余裕を確保）
 
 ### Non-Goals
 
@@ -172,7 +173,6 @@ sequenceDiagram
         Handler->>Handler: UUID生成 (crypto.randomUUID)
         Handler->>Storage: create(todo)
         Storage->>KV: PUT todos:${id}
-        Storage->>KV: PUT todos:all (全IDリスト更新)
         KV-->>Storage: 成功
         Storage-->>Handler: 作成済みTodo
         Handler-->>Client: 201 Created {id, title, completed, createdAt}
@@ -339,7 +339,9 @@ interface ErrorResponse {
 ```typescript
 interface TodoHandlerService {
   createTodo(c: Context): Promise<Response>;
-  // 事前条件: リクエストボディに有効なtitleが含まれる
+  // 事前条件:
+  //   - リクエストボディに有効なtitleが含まれる
+  //   - 現在のTodo件数が500件未満である
   // 事後条件: 新しいTodo項目が作成され、201 Createdレスポンスが返される
   // 不変条件: idはUUID v4形式、completedはfalse、createdAtは現在時刻
 
@@ -420,6 +422,39 @@ app.use('/*', cors({
 }));
 ```
 
+**環境別CORS設定**:
+
+開発環境と本番環境で異なるCORS設定を使用します。
+
+```typescript
+import { cors } from 'hono/cors';
+
+// 環境変数から許可オリジンを取得（未設定時は '*'）
+const getAllowedOrigins = (c: Context): string | string[] => {
+  const origins = c.env.ALLOWED_ORIGINS;
+  return origins ? origins.split(',').map(o => o.trim()) : '*';
+};
+
+app.use('/*', async (c, next) => {
+  const allowedOrigins = getAllowedOrigins(c);
+
+  return cors({
+    origin: allowedOrigins,
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'X-API-Key'],
+  })(c, next);
+});
+```
+
+**環境変数**:
+- `ALLOWED_ORIGINS`: カンマ区切りの許可オリジンリスト
+  - 例: `"https://todo.example.com,https://app.example.com"`
+  - 未設定時: `'*'`（開発環境用）
+
+**セキュリティ上の注意**:
+- 本番環境では必ず `ALLOWED_ORIGINS` を設定し、`'*'` を避けてください
+- クレデンシャル（API Key）を含むリクエストで `origin: '*'` を使用すると、CSRFリスクが増大します
+
 #### Error Handler Middleware
 
 **Responsibility & Boundaries**
@@ -498,23 +533,36 @@ class KVStorage implements IStorage {
 
   // KVキー設計:
   // - `todos:${uuid}` - 個別のTodo項目
-  // - `todos:all` - すべてのTodo IDのリスト（JSON配列）
+  // - KV List APIで `todos:` プレフィックスを持つすべてのキーを取得
 
   async create(todo: Todo): Promise<Todo> {
-    // 1. 個別のTodo項目を保存
+    // todos:all への書き込みが不要になり、競合状態を完全回避
     await this.kv.put(`todos:${todo.id}`, JSON.stringify(todo));
-
-    // 2. todos:allを更新（全IDリストに追加）
-    const allIds = await this.getAllIds();
-    allIds.push(todo.id);
-    await this.kv.put('todos:all', JSON.stringify(allIds));
-
     return todo;
   }
 
-  private async getAllIds(): Promise<string[]> {
-    const allIdsJson = await this.kv.get('todos:all');
-    return allIdsJson ? JSON.parse(allIdsJson) : [];
+  async getAll(): Promise<Todo[]> {
+    // KV List APIを使用して、todos: プレフィックスを持つすべてのキーを取得
+    const list = await this.kv.list({ prefix: 'todos:' });
+    const ids = list.keys.map(key => key.name.replace('todos:', ''));
+
+    // 並行してすべてのTodoを取得（パフォーマンス最適化）
+    const todosJson = await Promise.all(
+      ids.map(id => this.kv.get(`todos:${id}`))
+    );
+
+    return todosJson
+      .filter(json => json !== null)
+      .map(json => JSON.parse(json as string));
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const existing = await this.getById(id);
+    if (!existing) return false;
+
+    // todos:all の更新が不要
+    await this.kv.delete(`todos:${id}`);
+    return true;
   }
 }
 ```
@@ -554,6 +602,11 @@ interface ValidationUtility {
   validateId(id: string): boolean;
   // 検証項目:
   // - idがUUID v4形式である
+
+  validateTodoCount(currentCount: number): { valid: boolean; error?: string };
+  // 検証項目:
+  // - 現在のTodo件数が500件未満である
+  // - 500件に達している場合は "TODO_LIMIT_REACHED" エラー
 }
 ```
 
@@ -594,6 +647,7 @@ interface ResponseUtility {
 - `VALIDATION_ERROR`: バリデーションエラー（400）
 - `UNAUTHORIZED`: 認証エラー（401）
 - `NOT_FOUND`: リソースが見つからない（404）
+- `TODO_LIMIT_REACHED`: Todo項目数の上限到達（400）
 - `INTERNAL_ERROR`: 内部エラー（500）
 
 ## Data Models
@@ -649,7 +703,6 @@ classDiagram
 | Key | Value Type | Description | TTL |
 |-----|------------|-------------|-----|
 | `todos:${uuid}` | JSON (Todo) | 個別のTodo項目 | なし（永続） |
-| `todos:all` | JSON (string[]) | すべてのTodo IDのリスト | なし（永続） |
 
 **Value Structure**:
 
@@ -661,16 +714,13 @@ classDiagram
   "completed": false,
   "createdAt": "2025-10-27T10:30:00.000Z"
 }
-
-// todos:allの値
-["550e8400-e29b-41d4-a716-446655440000", "6fa459ea-ee8a-3ca4-894e-db77e160355e"]
 ```
 
 **Index Strategy**:
 - Workers KVはKey-Valueストアのため、セカンダリインデックスは提供されない
-- `todos:all`キーを使用してすべてのTodo IDを管理
-- 全Todo取得時は、`todos:all`からIDリストを取得し、各IDに対して`todos:${id}`を取得
-- **パフォーマンス考慮**: 大量のTodo項目（1000+）がある場合、全取得が遅くなる可能性がある（将来的にページネーション実装を検討）
+- **KV List API**を使用して `todos:` プレフィックスを持つすべてのキーを取得
+- 全Todo取得時は、List APIで全キーを取得後、`Promise.all()` で各Todoを並行取得
+- **制限**: KV List APIは最大1000件まで取得可能。本アプリケーションは最大500件に制限するため、この制限内に収まる
 
 **Consistency Model**:
 - **Eventual Consistency**: 書き込み後、グローバル反映まで最大60秒
@@ -816,6 +866,81 @@ flowchart TD
 
 ## Testing Strategy
 
+### Testing Setup
+
+**テストツールチェーン**:
+
+開発者がローカルおよびCI環境でテストを実行できるよう、以下の環境を準備します。
+
+**依存パッケージ（package.json）**:
+```json
+{
+  "devDependencies": {
+    "vitest": "^1.6.0",
+    "miniflare": "^3.20240925.0",
+    "@cloudflare/workers-types": "^4.20240925.0",
+    "typescript": "^5.6.0"
+  },
+  "scripts": {
+    "test": "vitest",
+    "test:coverage": "vitest --coverage"
+  }
+}
+```
+
+**Vitest設定（vitest.config.ts）**:
+```typescript
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    environment: 'miniflare',
+    environmentOptions: {
+      bindings: {
+        TODO_KV: 'TODO_KV',
+      },
+      kvNamespaces: ['TODO_KV'],
+    },
+  },
+});
+```
+
+**Miniflare設定（wrangler.tomlで代替可）**:
+
+テスト用の環境変数は `wrangler.toml` の `[env.test]` セクションで定義：
+
+```toml
+[env.test]
+vars = { VALID_API_KEYS = "test-key-1,test-key-2" }
+
+[[env.test.kv_namespaces]]
+binding = "TODO_KV"
+id = "test-kv-namespace-id"
+```
+
+**CI設定（GitHub Actions例）**:
+```yaml
+name: Test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm test
+```
+
+**テストファイル配置**:
+- `/test/unit/` - ユニットテスト（handlers, storage, utils）
+- `/test/integration/` - 統合テスト（エンドツーエンドAPI呼び出し）
+- `/test/e2e/` - E2Eテスト（ステージング環境使用）
+
 ### Unit Tests
 
 **対象コンポーネント**: ハンドラー、バリデーション、ストレージ層、ユーティリティ
@@ -829,9 +954,10 @@ flowchart TD
    - getTodoById: 存在するID、存在しないID（null返却）
    - updateTodo: 部分更新、id/createdAt不変性
 3. **KVStorage**:
-   - create: 個別Todo保存、todos:all更新
+   - create: 個別Todo保存（KV List API使用のため、todos:all更新不要）
+   - getAll: KV List APIでキー取得、Promise.allで並行取得
    - getById: KV取得、JSONパース
-   - delete: KV削除、todos:all更新
+   - delete: KV削除（KV List API使用のため、todos:all更新不要）
 4. **ResponseUtility**:
    - jsonResponse: 正しいContent-Typeとステータスコード
    - errorResponse: 標準化されたエラー形式
@@ -999,9 +1125,25 @@ flowchart TD
 ### パフォーマンス目標
 
 **レスポンスタイム目標**:
-- **エッジ処理のみ（認証、バリデーション）**: P95 < 50ms（要件8）
-- **ストレージアクセス込み（KV読み込み）**: P95 < 200ms（要件8）
-- **ストレージ書き込み込み（KV書き込み）**: P95 < 200ms
+
+- **単一Todo取得（GET /todos/:id）**: P95 < 200ms
+  - 内訳: KV読み込み（10-50ms） + エッジ処理（20-30ms） + ネットワークレイテンシー（50-100ms）
+
+- **Todo作成（POST /todos）**: P95 < 250ms
+  - 内訳: KV書き込み×1（todos:{id}） + エッジ処理（20-30ms） + ネットワークレイテンシー（50-100ms）
+  - 注: KV List API採用により、todos:allへの書き込みが不要
+
+- **Todo更新（PUT /todos/:id）**: P95 < 250ms
+  - 内訳: KV読み込み + KV書き込み + エッジ処理 + ネットワークレイテンシー
+
+- **Todo削除（DELETE /todos/:id）**: P95 < 200ms
+  - 内訳: KV読み込み（存在確認） + KV削除 + エッジ処理 + ネットワークレイテンシー
+
+- **全Todo取得（GET /todos、最大500件）**: P95 < 5秒
+  - 内訳: KV List API（50-100ms） + 並行KV読み込み×500（Promise.all使用）
+  - エッジキャッシュヒット率が高い場合、実測値はさらに短縮される見込み
+
+- **認証・バリデーション失敗時（エッジ処理のみ）**: P95 < 50ms
 
 **測定方法**:
 - Cloudflare Workers Analyticsでレスポンスタイムを監視
@@ -1036,7 +1178,6 @@ flowchart TD
 
 **キャッシュ無効化**:
 - Todo項目の作成/更新/削除時、該当するKVキーのキャッシュは自動的に無効化される
-- `todos:all`の更新により、全取得APIのキャッシュも無効化される
 
 ### パフォーマンス最適化
 
@@ -1052,3 +1193,83 @@ flowchart TD
 **モニタリングとチューニング**:
 - Cloudflare Workers Analyticsで継続的にパフォーマンスを監視
 - ボトルネックを特定し、必要に応じてストレージ戦略やアーキテクチャを調整
+
+## Deployment & Configuration
+
+### Environment Variables
+
+| 変数名 | 必須 | 説明 | デフォルト値 | 例 |
+|--------|------|------|------------|-----|
+| `VALID_API_KEYS` | はい | カンマ区切りの有効なAPI Keyリスト | なし | `"key1,key2,key3"` |
+| `ALLOWED_ORIGINS` | いいえ | カンマ区切りの許可オリジンリスト | `*`（開発用） | `"https://todo.example.com,https://app.example.com"` |
+
+### Cloudflare Workers Bindings
+
+| Binding名 | タイプ | 説明 |
+|-----------|--------|------|
+| `TODO_KV` | KV Namespace | Todo項目を保存するKVストレージ |
+
+### wrangler.toml設定例
+
+```toml
+name = "cloudflare-workers-todo"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# 開発環境（デフォルト）
+[[kv_namespaces]]
+binding = "TODO_KV"
+id = "your-dev-kv-namespace-id"
+
+[env.production]
+# 本番環境
+[[env.production.kv_namespaces]]
+binding = "TODO_KV"
+id = "your-production-kv-namespace-id"
+
+# 本番環境のCORS設定は環境変数で管理
+# vars = { ALLOWED_ORIGINS = "https://todo.example.com" }  # 非推奨（シークレット使用推奨）
+```
+
+### シークレット管理
+
+**重要**: API Keyや本番環境のオリジンリストは、`wrangler.toml` に平文で記載せず、必ず `wrangler secret` コマンドで管理してください。
+
+```bash
+# 本番環境のAPI Key設定
+wrangler secret put VALID_API_KEYS --env production
+# プロンプト: 複数のキーをカンマ区切りで入力（例: key1,key2,key3）
+
+# 本番環境のCORS設定（オリジンが決まっている場合）
+wrangler secret put ALLOWED_ORIGINS --env production
+# プロンプト: https://todo.example.com,https://app.example.com
+
+# 開発環境（ローカルテスト用）
+wrangler secret put VALID_API_KEYS --env development
+```
+
+### デプロイコマンド
+
+```bash
+# 開発環境（ステージング）へのデプロイ
+wrangler deploy
+
+# 本番環境へのデプロイ
+wrangler deploy --env production
+```
+
+### KV Namespaceの作成
+
+初回デプロイ前に、KV Namespaceを作成してください：
+
+```bash
+# 開発環境用
+wrangler kv:namespace create "TODO_KV"
+# 出力例: id = "abc123def456"
+# → wrangler.toml の [[kv_namespaces]] に設定
+
+# 本番環境用
+wrangler kv:namespace create "TODO_KV" --env production
+# 出力例: id = "xyz789uvw012"
+# → wrangler.toml の [[env.production.kv_namespaces]] に設定
+```
