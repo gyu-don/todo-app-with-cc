@@ -16,8 +16,28 @@
 
 ### ランタイム環境
 - **Cloudflare Workers**: V8 isolates上で動作するサーバーレス実行環境
-- **言語**: TypeScript/JavaScript (予定)
+- **言語**: TypeScript/JavaScript
 - **HTTP処理**: Fetch API標準に準拠
+
+### Webフレームワーク
+- **Hono**: Cloudflare Workers向けの軽量・高速Webフレームワーク
+  - **特徴**:
+    - エッジ環境に最適化された軽量設計（~12KB）
+    - TypeScript完全サポート
+    - 直感的なルーティングAPI
+    - ミドルウェアサポート（CORS、ロギング、エラーハンドリング）
+    - Fetch API準拠
+  - **選定理由**:
+    - Cloudflare Workersでのパフォーマンスが実証済み
+    - 最小限の依存関係で起動時間を短縮
+    - Express風のシンプルなAPI設計
+    - 型安全なルーティングとバリデーション
+  - **主な機能**:
+    - ルーティング（パスパラメータ、クエリパラメータ）
+    - ミドルウェアチェーン
+    - 組み込みCORSサポート
+    - JSONレスポンスヘルパー
+    - エラーハンドリング
 
 ### データ永続化
 以下のいずれかのCloudflareストレージサービスを使用（設計フェーズで決定）:
@@ -46,8 +66,11 @@
 - **Git**: バージョン管理
 - **Claude Code**: Kiro方式のスペック駆動開発
 
-### 推奨ツール
+### 必須パッケージ
+- **hono**: Webフレームワーク
 - **TypeScript**: 型安全性の向上
+
+### 推奨ツール
 - **ESLint/Prettier**: コード品質・フォーマット
 - **Vitest**: ユニットテスト（Workers環境対応）
 - **Miniflare**: ローカル開発環境

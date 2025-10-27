@@ -70,9 +70,10 @@ todo-app-with-cc/
 ```
 src/
 ├── index.ts              # Workerエントリーポイント
-│                         # - fetch()イベントハンドラー
-│                         # - ルーティング
-│                         # - CORSハンドリング
+│                         # - Honoアプリケーションの初期化
+│                         # - ルーティング定義
+│                         # - ミドルウェア設定（CORS等）
+│                         # - エクスポート: default (Hono app)
 ├── handlers/             # ビジネスロジック
 │   ├── todos.ts          # Todo CRUD操作
 │   │                     # - createTodo()
@@ -108,31 +109,41 @@ src/
 
 ## コード編成パターン
 
-### レイヤードアーキテクチャ
+### レイヤードアーキテクチャ（Hono統合）
 1. **エントリーポイント層** (`index.ts`)
-   - HTTPリクエストの受信
-   - ルーティング
-   - CORS処理
+   - Honoアプリケーションの初期化
+   - ルーティング定義（Hono Router）
+   - ミドルウェア設定（CORS、エラーハンドリング等）
+   - HTTPリクエストの受信と振り分け
 
 2. **ハンドラー層** (`handlers/`)
    - ビジネスロジック
-   - リクエスト/レスポンス処理
+   - Honoコンテキスト(Context)からのリクエスト処理
    - バリデーション
+   - JSONレスポンスの生成
 
 3. **ストレージ層** (`storage/`)
    - データ永続化の抽象化
    - ストレージ実装の切り替え可能性
+   - Cloudflare Bindings統合
 
 4. **モデル層** (`models/`)
    - 型定義
    - データ構造
+   - バリデーションスキーマ
 
 ### 依存性の方向
 ```
-index.ts → handlers/ → storage/ → models/
-                    ↓
-                  utils/
+index.ts (Hono) → handlers/ → storage/ → models/
+                           ↓
+                         utils/
 ```
+
+### Honoの統合パターン
+- **ルーティング**: Honoの型安全なルーティングを活用
+- **ミドルウェア**: CORS、ロギング、エラーハンドリングをミドルウェアチェーンで実装
+- **コンテキスト**: Honoの`Context`オブジェクトでリクエスト/レスポンス処理
+- **バインディング**: `c.env`でCloudflare Workers Bindingsにアクセス
 
 ## ファイル命名規則
 
