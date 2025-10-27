@@ -197,4 +197,156 @@ describe('API Integration Tests', () => {
       expect(res.status).toBe(404);
     });
   });
+
+  describe('CRUD Flow Integration', () => {
+    it('should create todo, retrieve it, and verify data matches', async () => {
+      // POST /todos - Create
+      const createRes = await app.request('/todos', {
+        method: 'POST',
+        headers: {
+          'X-API-Key': 'test-api-key',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: 'CRUD Test Todo' }),
+      }, env);
+
+      expect(createRes.status).toBe(201);
+      const created = await createRes.json();
+      expect(created).toHaveProperty('id');
+      expect(created.title).toBe('CRUD Test Todo');
+      expect(created.completed).toBe(false);
+
+      // GET /todos/:id - Retrieve
+      const getRes = await app.request(`/todos/${created.id}`, {
+        method: 'GET',
+        headers: {
+          'X-API-Key': 'test-api-key',
+        },
+      }, env);
+
+      expect(getRes.status).toBe(200);
+      const retrieved = await getRes.json();
+      expect(retrieved).toEqual(created);
+    });
+
+    it('should update todo and verify changes persist', async () => {
+      // Create todo first
+      const createRes = await app.request('/todos', {
+        method: 'POST',
+        headers: {
+          'X-API-Key': 'test-api-key',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: 'Original Title' }),
+      }, env);
+
+      const created = await createRes.json();
+
+      // PUT /todos/:id - Update
+      const updateRes = await app.request(`/todos/${created.id}`, {
+        method: 'PUT',
+        headers: {
+          'X-API-Key': 'test-api-key',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: 'Updated Title', completed: true }),
+      }, env);
+
+      expect(updateRes.status).toBe(200);
+      const updated = await updateRes.json();
+      expect(updated.title).toBe('Updated Title');
+      expect(updated.completed).toBe(true);
+      expect(updated.id).toBe(created.id); // ID unchanged
+      expect(updated.createdAt).toBe(created.createdAt); // createdAt unchanged
+
+      // GET /todos/:id - Verify update persisted
+      const getRes = await app.request(`/todos/${created.id}`, {
+        method: 'GET',
+        headers: {
+          'X-API-Key': 'test-api-key',
+        },
+      }, env);
+
+      const retrieved = await getRes.json();
+      expect(retrieved).toEqual(updated);
+    });
+
+    it('should delete todo and verify it no longer exists', async () => {
+      // Create todo first
+      const createRes = await app.request('/todos', {
+        method: 'POST',
+        headers: {
+          'X-API-Key': 'test-api-key',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: 'To Be Deleted' }),
+      }, env);
+
+      const created = await createRes.json();
+
+      // DELETE /todos/:id - Delete
+      const deleteRes = await app.request(`/todos/${created.id}`, {
+        method: 'DELETE',
+        headers: {
+          'X-API-Key': 'test-api-key',
+        },
+      }, env);
+
+      expect(deleteRes.status).toBe(204);
+
+      // GET /todos/:id - Verify 404
+      const getRes = await app.request(`/todos/${created.id}`, {
+        method: 'GET',
+        headers: {
+          'X-API-Key': 'test-api-key',
+        },
+      }, env);
+
+      expect(getRes.status).toBe(404);
+      const body = await getRes.json();
+      expect(body.error.code).toBe('NOT_FOUND');
+    });
+
+    it('should retrieve multiple todos via GET /todos', async () => {
+      // Create multiple todos
+      const todo1Res = await app.request('/todos', {
+        method: 'POST',
+        headers: {
+          'X-API-Key': 'test-api-key',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: 'Todo 1' }),
+      }, env);
+
+      const todo2Res = await app.request('/todos', {
+        method: 'POST',
+        headers: {
+          'X-API-Key': 'test-api-key',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: 'Todo 2' }),
+      }, env);
+
+      const todo1 = await todo1Res.json();
+      const todo2 = await todo2Res.json();
+
+      // GET /todos - Retrieve all
+      const getAllRes = await app.request('/todos', {
+        method: 'GET',
+        headers: {
+          'X-API-Key': 'test-api-key',
+        },
+      }, env);
+
+      expect(getAllRes.status).toBe(200);
+      const allTodos = await getAllRes.json();
+      expect(Array.isArray(allTodos)).toBe(true);
+      expect(allTodos.length).toBeGreaterThanOrEqual(2);
+
+      // Verify both todos are in the list
+      const ids = allTodos.map((t: any) => t.id);
+      expect(ids).toContain(todo1.id);
+      expect(ids).toContain(todo2.id);
+    });
+  });
 });
