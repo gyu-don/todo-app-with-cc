@@ -49,15 +49,15 @@
   - VALID_API_KEYS、ALLOWED_ORIGINS環境変数を定義する
   - _要件: 5.1（KVバインディング）、10.2（API Key認証）_
 
-- [ ] 3. ストレージ層の実装
-- [ ] 3.1 ストレージインターフェースの定義
+- [x] 3. ストレージ層の実装
+- [x] 3.1 ストレージインターフェースの定義
   - IStorageインターフェースを定義する
   - CRUD操作メソッド（create、getAll、getById、update、delete）を定義する
   - 各メソッドの契約（事前条件、事後条件、不変条件）をコメントで記載する
   - 将来的なストレージ移行（D1、Durable Objects）を考慮した抽象化を行う
   - _要件: 5.1-5.4（データ永続化）_
 
-- [ ] 3.2 Workers KVストレージの実装
+- [x] 3.2 Workers KVストレージの実装
   - KVStorageクラスを実装し、IStorageインターフェースを継承する
   - createメソッドを実装（todos:{id}キーにJSON保存）
   - getAllメソッドを実装（KV List APIでキー取得、Promise.allで並行読み込み）
