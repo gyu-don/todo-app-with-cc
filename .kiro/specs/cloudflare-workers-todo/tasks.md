@@ -6,22 +6,22 @@
 
 ## タスクリスト
 
-- [ ] 1. プロジェクト基盤のセットアップ
-- [ ] 1.1 プロジェクトの初期化と依存関係のインストール
+- [x] 1. プロジェクト基盤のセットアップ
+- [x] 1.1 プロジェクトの初期化と依存関係のインストール
   - Node.jsプロジェクトを初期化し、必要なパッケージをインストールする
   - Hono、TypeScript、Wranglerなどのコア依存関係を追加する
   - 開発用依存関係（Vitest、Miniflare、ESLint、Prettier等）を設定する
   - package.jsonにスクリプト（dev、build、deploy、test）を定義する
   - _要件: 8.1（エッジロケーション処理）、全要件に必要な基盤_
 
-- [ ] 1.2 Wrangler設定ファイルの作成
+- [x] 1.2 Wrangler設定ファイルの作成
   - wrangler.tomlファイルを作成し、Workerの基本設定を定義する
   - Workers KVバインディング（TODO_KV）を設定する
   - 互換性日付（compatibility_date）を設定する
   - 開発環境と本番環境の設定を分離する
   - _要件: 5.1（データ永続化にKV使用）、8.1（エッジ処理）_
 
-- [ ] 1.3 TypeScript設定とプロジェクト構造の確立
+- [x] 1.3 TypeScript設定とプロジェクト構造の確立
   - tsconfig.jsonを作成し、TypeScriptコンパイラオプションを設定する
   - パスエイリアス（@models、@handlers、@utils等）を定義する
   - ディレクトリ構造（src/、test/、handlers/、middleware/、storage/、utils/、models/）を作成する
