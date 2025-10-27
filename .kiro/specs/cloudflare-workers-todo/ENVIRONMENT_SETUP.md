@@ -66,18 +66,32 @@ jobs:
 
 ## 2️⃣ Claude Code環境（ローカル開発用）
 
-ローカル開発とテストに必要な環境変数です。
+⚠️ **重要**: Claude Code環境ではインタラクティブなブラウザ認証（`wrangler login`）は使用できません。代わりに環境変数 `CLOUDFLARE_API_TOKEN` を使用します。
 
-### 設定方法1: Cloudflare認証（wrangler login）
+### 設定方法1: Cloudflare API Token設定（必須）
 
-Claude Code環境でWranglerを使用するため、Cloudflare認証が必要です。
+Claude Code環境でWranglerを使用するには、環境変数でAPI Tokenを設定します。
 
+**ステップ1: Cloudflare API Tokenの取得（ユーザーが手作業で実行）**
+
+1. Cloudflare Dashboard → My Profile → API Tokens
+2. "Create Token" をクリック
+3. "Edit Cloudflare Workers" テンプレートを使用
+4. 生成されたトークンをコピー
+
+**ステップ2: Claude Code環境に環境変数を設定**
+
+`.dev.vars` ファイルに追加:
 ```bash
-# Claude Code環境で実行
-npx wrangler login
+CLOUDFLARE_API_TOKEN=your-api-token-here
+CLOUDFLARE_ACCOUNT_ID=your-account-id-here
 ```
 
-ブラウザが開き、Cloudflareへのログインを求められます。認証を完了すると、`~/.wrangler/config/default.toml` に認証情報が保存されます。
+または、Claude Code起動時に環境変数として渡す:
+```bash
+export CLOUDFLARE_API_TOKEN=your-api-token-here
+export CLOUDFLARE_ACCOUNT_ID=your-account-id-here
+```
 
 ### 設定方法2: ローカル環境変数（.dev.vars）
 
@@ -100,7 +114,7 @@ EOF
 echo ".dev.vars" >> .gitignore
 ```
 
-### ローカルテスト用の環境変数（Vitest）
+### 設定方法3: テスト用の環境変数（Vitest）
 
 Vitestでテストを実行する場合、テスト用の環境変数を設定します。
 
@@ -129,6 +143,16 @@ export default defineConfig({
 ```bash
 VALID_API_KEYS=test-key-1,test-key-2 npm test
 ```
+
+### 推奨: CI/CDに寄せる
+
+Claude Code環境での繰り返し作業（デプロイ、テスト実行など）は、CI/CDパイプラインで自動化することを強く推奨します。これにより：
+
+- 環境変数の設定が一元管理される
+- 手作業によるミスが減少する
+- デプロイプロセスが標準化される
+
+詳細は「1️⃣ GitHub Secrets（CI/CD用）」セクションを参照してください。
 
 ---
 
@@ -249,32 +273,29 @@ XyZ1234567890AbCdEfGhIjKlMnOpQrStUvWxYz==
 
 ## 🚀 セットアップチェックリスト
 
-### ローカル開発環境
+### ユーザーが手作業で行う初回セットアップ（一度だけ）
 
-- [ ] `npx wrangler login` でCloudflare認証を完了
-- [ ] `.dev.vars` ファイルを作成し、`VALID_API_KEYS` を設定
-- [ ] `.dev.vars` を `.gitignore` に追加
-- [ ] `wrangler kv:namespace create "TODO_KV"` でKV Namespaceを作成
-- [ ] `wrangler.toml` にKV Namespace IDを記載
-- [ ] `npx wrangler dev` でローカルサーバーが起動することを確認
+以下の作業は、ユーザーのローカル環境で一度だけ実行してください：
 
-### ステージング環境
-
-- [ ] `wrangler secret put VALID_API_KEYS` でAPI Keyを設定
-- [ ] `npx wrangler deploy` でデプロイ成功を確認
-- [ ] `curl` でAPIエンドポイントが動作することを確認
-
-### 本番環境
-
-- [ ] 強力なAPI Key（32文字以上）を生成
+- [ ] Cloudflare Dashboard → My Profile → API Tokens で `CLOUDFLARE_API_TOKEN` を生成
+- [ ] Cloudflare Dashboard → Workers & Pages で `CLOUDFLARE_ACCOUNT_ID` を取得
+- [ ] GitHub Secretsに上記2つの値を設定
+- [ ] 本番用の強力なAPI Key（32文字以上）を生成し、安全な場所に保管
+- [ ] `wrangler kv:namespace create "TODO_KV"` でKV Namespaceを作成（開発環境用）
+- [ ] `wrangler kv:namespace create "TODO_KV" --env production` でKV Namespaceを作成（本番環境用）
+- [ ] `wrangler secret put VALID_API_KEYS` でステージングAPI Keyを設定
 - [ ] `wrangler secret put VALID_API_KEYS --env production` で本番API Keyを設定
-- [ ] `wrangler secret put ALLOWED_ORIGINS --env production` で特定のオリジンを設定
-- [ ] `wrangler kv:namespace create "TODO_KV" --env production` で本番KV Namespaceを作成
-- [ ] `wrangler.toml` の `[env.production]` に本番KV Namespace IDを記載
-- [ ] `npx wrangler deploy --env production` で本番デプロイ成功を確認
-- [ ] 本番URLでAPIが動作することを確認
+- [ ] `wrangler secret put ALLOWED_ORIGINS --env production` で本番CORSオリジンを設定
 
-### CI/CD（GitHub Actions）
+### Claude Code環境でのセットアップ
+
+- [ ] `.dev.vars` ファイルを作成
+- [ ] `.dev.vars` に `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` を設定
+- [ ] `.dev.vars` に `VALID_API_KEYS` を設定
+- [ ] `.dev.vars` を `.gitignore` に追加
+- [ ] `wrangler.toml` にKV Namespace IDを記載（開発環境と本番環境）
+
+### CI/CD環境（推奨：繰り返し作業を自動化）
 
 - [ ] GitHub Secretsに `CLOUDFLARE_API_TOKEN` を設定
 - [ ] GitHub Secretsに `CLOUDFLARE_ACCOUNT_ID` を設定
@@ -282,15 +303,23 @@ XyZ1234567890AbCdEfGhIjKlMnOpQrStUvWxYz==
 - [ ] `.github/workflows/deploy.yml` を作成
 - [ ] mainブランチへのプッシュでデプロイが自動実行されることを確認
 
+
 ---
 
 ## ❓ トラブルシューティング
 
 ### エラー: "Authentication error"
 
-**原因**: Cloudflare認証が完了していない
+**原因**: Cloudflare認証が設定されていない
 
-**解決方法**:
+**解決方法（Claude Code環境）**:
+```bash
+# .dev.vars ファイルに追加
+echo 'CLOUDFLARE_API_TOKEN=your-api-token-here' >> .dev.vars
+echo 'CLOUDFLARE_ACCOUNT_ID=your-account-id-here' >> .dev.vars
+```
+
+**解決方法（ユーザーのローカル環境）**:
 ```bash
 npx wrangler login
 ```
