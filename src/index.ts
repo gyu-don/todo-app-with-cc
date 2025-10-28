@@ -54,7 +54,7 @@ const app = new Hono<{ Bindings: Env }>();
  * - エラー詳細（スタックトレース、内部変数等）はログにのみ記録
  * - クライアントには一般的なエラーメッセージのみ提供
  */
-app.onError((err, c) => {
+app.onError((err, _c) => {
   console.error('Unhandled error:', {
     message: err.message,
     stack: err.stack,
@@ -147,7 +147,7 @@ app.get('/', (c) => {
  *
  * 定義されていないルートへのアクセスに対して404エラーを返します。
  */
-app.notFound((c) => {
+app.notFound((_c) => {
   return errorResponse(
     ERROR_CODES.NOT_FOUND,
     'The requested endpoint does not exist',

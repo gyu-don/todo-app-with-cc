@@ -151,7 +151,7 @@ export async function createTodoHandler(
  * ```
  */
 export async function getTodosHandler(
-  c: Context<{ Bindings: Env }>,
+  _c: Context<{ Bindings: Env }>,
   storage: IStorage
 ): Promise<Response> {
   try {

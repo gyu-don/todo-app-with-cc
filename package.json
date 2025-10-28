@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "build": "tsc && wrangler deploy --dry-run",
+    "build": "tsc --project tsconfig.build.json && wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
     "deploy:production": "wrangler deploy --env production",
     "test": "vitest",
