@@ -1,7 +1,7 @@
 {
   "name": "cloudflare-workers-todo",
   "version": "1.0.0",
-  "description": "Cloudflare Workers Todo Application - A serverless Todo API built on Cloudflare Workers",
+  "description": "Cloudflare Workers Todo Application - A full-stack serverless Todo app with React frontend and REST API",
   "main": "src/index.ts",
   "type": "module",
   "scripts": {

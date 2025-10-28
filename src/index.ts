@@ -30,6 +30,7 @@ import {
 } from './handlers/todos';
 import { errorResponse } from './utils/response';
 import { ERROR_CODES } from './models/error';
+import { FRONTEND_HTML } from './frontend';
 
 /**
  * Hono Application
@@ -129,17 +130,24 @@ app.delete('/todos/:id', async (c) => {
 });
 
 /**
- * Health Check Endpoint (Optional)
+ * Frontend & Health Check Endpoint
  *
- * アプリケーションの動作確認用エンドポイント。
- * 認証不要でアクセス可能。
+ * ルートパスへのGETリクエストでは、Reactフロントエンドを返します。
+ * JSONリクエスト（Accept: application/json）の場合は、APIステータスを返します。
  */
 app.get('/', (c) => {
-  return c.json({
-    name: 'Cloudflare Workers Todo API',
-    version: '1.0.0',
-    status: 'healthy',
-  });
+  // JSONリクエストの場合はAPIステータスを返す
+  const acceptHeader = c.req.header('Accept') || '';
+  if (acceptHeader.includes('application/json')) {
+    return c.json({
+      name: 'Cloudflare Workers Todo API',
+      version: '1.0.0',
+      status: 'healthy',
+    });
+  }
+
+  // それ以外（ブラウザアクセス）はフロントエンドを返す
+  return c.html(FRONTEND_HTML);
 });
 
 /**
