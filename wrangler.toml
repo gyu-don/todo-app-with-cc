@@ -33,10 +33,6 @@ id = "834ba3aa62f9434881397984a66b35b8"
 # セキュリティ上の理由から、特定のオリジンのみを許可してください
 # 設定方法: wrangler secret put ALLOWED_ORIGINS --env production
 
-# ビルド設定
-[build]
-command = "npm run build"
-
 # 開発サーバー設定
 [dev]
 port = 8787
