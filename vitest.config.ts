@@ -1,12 +1,29 @@
 import { defineConfig } from 'vitest/config';
+import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config';
 import path from 'path';
 
-export default defineConfig({
+export default defineWorkersConfig({
   test: {
     globals: true,
-    // Note: Using 'node' environment for now (type definition tests)
-    // Will switch to '@cloudflare/vitest-pool-workers' for integration tests
-    environment: 'node',
+    // Use Cloudflare Workers pool for integration tests
+    poolOptions: {
+      workers: {
+        wrangler: {
+          configPath: './wrangler.toml',
+        },
+        miniflare: {
+          // Workers KV binding for tests
+          kvNamespaces: {
+            TODO_KV: 'test-todo-kv',
+          },
+          // Environment variables for tests
+          bindings: {
+            VALID_API_KEYS: 'test-api-key,another-test-key',
+            ALLOWED_ORIGINS: '*',
+          },
+        },
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

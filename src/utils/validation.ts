@@ -80,7 +80,7 @@ export function validateTodoInput(input: unknown): ValidationResult {
   const data = input as Record<string, unknown>;
 
   // Validate title (required)
-  if (!('title' in data) || data.title === undefined) {
+  if (!('title' in data) || data['title'] === undefined) {
     return {
       valid: false,
       error: 'title is required',
@@ -88,14 +88,14 @@ export function validateTodoInput(input: unknown): ValidationResult {
   }
 
   // Check title type
-  if (typeof data.title !== 'string') {
+  if (typeof data['title'] !== 'string') {
     return {
       valid: false,
       error: 'Title must be a string',
     };
   }
 
-  const title = data.title;
+  const title = data['title'] as string;
 
   // Check title length (minimum)
   if (title.length < TODO_CONSTRAINTS.MIN_TITLE_LENGTH) {
@@ -122,8 +122,8 @@ export function validateTodoInput(input: unknown): ValidationResult {
   }
 
   // Validate completed (optional) - 要件12.5
-  if ('completed' in data && data.completed !== undefined) {
-    if (typeof data.completed !== 'boolean') {
+  if ('completed' in data && data['completed'] !== undefined) {
+    if (typeof data['completed'] !== 'boolean') {
       return {
         valid: false,
         error: 'Completed must be a boolean',
