@@ -1,24 +1,33 @@
-# Cloudflare Workers Todo API
+# Cloudflare Workers Todo App
 
-Cloudflare Workers上で動作する高性能なTodo管理APIです。エッジコンピューティングを活用し、世界中どこからでも低レイテンシーでアクセス可能です。
+Cloudflare Workers上で動作する高性能なTodo管理アプリケーションです。エッジコンピューティングを活用し、世界中どこからでも低レイテンシーでアクセス可能です。
 
 ## 特徴
 
 - **⚡️ 高速**: Cloudflare Workersのエッジネットワークで世界中から低レイテンシーアクセス
+- **🎨 フロントエンド**: React製のシンプルで使いやすいUI
 - **🔒 セキュア**: API Key認証、CORS設定、入力バリデーション
-- **📦 軽量**: Hono フレームワークを使用した最小限のバンドルサイズ（~12KB）
+- **📦 軽量**: Hono フレームワークを使用した最小限のバンドルサイズ（~80KB）
 - **🧪 高品質**: 227のテストでカバー（ユニット・統合テスト）
 - **📝 型安全**: TypeScriptによる完全な型安全性
 - **🌐 RESTful**: 標準的なRESTful API設計
+- **🚀 CI/CD**: GitHub Actionsによる自動テスト・デプロイ
 
 ## 技術スタック
 
+### バックエンド
 - **Runtime**: Cloudflare Workers (V8 Isolates)
 - **Framework**: Hono (v4.6+)
 - **Language**: TypeScript (v5.7+)
 - **Storage**: Workers KV
 - **Testing**: Vitest + @cloudflare/vitest-pool-workers
-- **Dev Tools**: Wrangler (v3.96+)
+- **Dev Tools**: Wrangler (v4.45+)
+
+### フロントエンド
+- **Framework**: React 18 (CDN経由)
+- **Styling**: CSS-in-HTML（シンプルなインラインスタイル）
+- **State Management**: React Hooks (useState, useEffect)
+- **Build**: ビルド不要（CDN経由でReactを読み込み）
 
 ## 前提条件
 
@@ -60,6 +69,15 @@ npm run dev
 ```
 
 デフォルトで`http://localhost:8787`でサーバーが起動します。
+
+**アクセス方法:**
+- **フロントエンド**: ブラウザで `http://localhost:8787` にアクセス
+- **API Health Check**: `curl http://localhost:8787/ -H "Accept: application/json"`
+
+**使い方:**
+1. ブラウザで `http://localhost:8787` を開く
+2. API Keyフィールドに `dev-key-1` を入力
+3. Todoを追加・編集・削除
 
 ## API仕様
 
@@ -400,6 +418,83 @@ wrangler secret list
 ### CORSエラーが発生する
 
 `ALLOWED_ORIGINS`環境変数が正しく設定されているか確認してください。開発環境では`*`、本番環境では特定のドメインを指定してください。
+
+## GitHub CI/CD 自動化
+
+このプロジェクトには、GitHub Actionsを使用した自動テスト・デプロイ機能が含まれています。
+
+### CI（継続的インテグレーション）
+
+`.github/workflows/ci.yml` - すべてのプッシュとPRで実行
+
+**実行内容:**
+- 型チェック (`npm run typecheck`)
+- リント (`npm run lint`)
+- フォーマットチェック (`npm run format:check`)
+- テスト実行 (`npm test`)
+- ビルド検証 (`npm run build`)
+
+### CD（継続的デプロイ）
+
+`.github/workflows/deploy.yml` - mainブランチへのプッシュで実行
+
+**実行内容:**
+- テスト実行
+- Cloudflare Workersへ自動デプロイ
+
+### セットアップ方法
+
+1. **ワークフローファイルの配置**
+
+   `docs/github-workflows/workflows-example/workflows/` にあるワークフローファイルを `.github/workflows/` にコピーします:
+
+   ```bash
+   mkdir -p .github/workflows
+   cp docs/github-workflows/workflows-example/workflows/*.yml .github/workflows/
+   ```
+
+2. **Cloudflare API Tokenの取得**
+   - [Cloudflare Dashboard](https://dash.cloudflare.com/profile/api-tokens) にアクセス
+   - "Create Token" → "Edit Cloudflare Workers" テンプレートを選択
+   - 必要な権限を設定してトークンを生成
+
+3. **GitHubシークレットの設定**
+
+   リポジトリの Settings → Secrets and variables → Actions で以下を追加:
+
+   - `CLOUDFLARE_API_TOKEN`: 上記で取得したAPIトークン
+   - `CLOUDFLARE_ACCOUNT_ID`: CloudflareのAccount ID（Dashboardで確認可能）
+
+4. **ワークフローの有効化**
+
+   GitHubリポジトリにプッシュすると、自動的にワークフローが実行されます。
+
+### ワークフローのカスタマイズ
+
+**本番環境へのデプロイ:**
+
+`.github/workflows/deploy.yml`を編集して、環境を指定できます:
+
+```yaml
+- name: Deploy to Cloudflare Workers
+  uses: cloudflare/wrangler-action@v3
+  with:
+    apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    environment: 'production'  # 本番環境を指定
+```
+
+**特定のブランチのみデプロイ:**
+
+`on.push.branches`を変更:
+
+```yaml
+on:
+  push:
+    branches:
+      - main
+      - staging  # stagingブランチも追加
+```
 
 ## ライセンス
 
