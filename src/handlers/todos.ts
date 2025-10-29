@@ -86,8 +86,7 @@ export async function createTodoHandler(
     if (!countValidation.valid) {
       return errorResponse(
         ERROR_CODES.TODO_LIMIT_REACHED,
-        countValidation.error ||
-          'Maximum number of todos (500) has been reached',
+        countValidation.error || 'Maximum number of todos (500) has been reached',
         400
       );
     }
@@ -208,11 +207,7 @@ export async function getTodoByIdHandler(
 
     // 存在しない場合は404（要件2.3）
     if (!todo) {
-      return errorResponse(
-        ERROR_CODES.NOT_FOUND,
-        `Todo item with ID ${id} not found`,
-        404
-      );
+      return errorResponse(ERROR_CODES.NOT_FOUND, `Todo item with ID ${id} not found`, 404);
     }
 
     return jsonResponse(todo, 200);
@@ -303,11 +298,7 @@ export async function updateTodoHandler(
 
     // 存在しない場合は404（要件3.3）
     if (!updatedTodo) {
-      return errorResponse(
-        ERROR_CODES.NOT_FOUND,
-        `Todo item with ID ${id} not found`,
-        404
-      );
+      return errorResponse(ERROR_CODES.NOT_FOUND, `Todo item with ID ${id} not found`, 404);
     }
 
     return jsonResponse(updatedTodo, 200);
@@ -361,11 +352,7 @@ export async function deleteTodoHandler(
 
     // 存在しない場合は404（要件4.3）
     if (!deleted) {
-      return errorResponse(
-        ERROR_CODES.NOT_FOUND,
-        `Todo item with ID ${id} not found`,
-        404
-      );
+      return errorResponse(ERROR_CODES.NOT_FOUND, `Todo item with ID ${id} not found`, 404);
     }
 
     // 204 No Contentを返す（要件4.2）

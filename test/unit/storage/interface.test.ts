@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import type { IStorage } from '../../../src/storage/interface';
 import type { Todo } from '../../../src/models/todo';
 
 describe('IStorage Interface', () => {
@@ -249,12 +248,7 @@ describe('IStorage Interface', () => {
       // - Workers KV → Durable Objects
       // - D1 → PostgreSQL (外部)
 
-      const storageOptions = [
-        'Workers KV',
-        'D1',
-        'Durable Objects',
-        'External Database',
-      ];
+      const storageOptions = ['Workers KV', 'D1', 'Durable Objects', 'External Database'];
 
       expect(storageOptions.length).toBeGreaterThan(1);
     });

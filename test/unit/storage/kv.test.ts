@@ -76,7 +76,7 @@ describe('KVStorage', () => {
         keys: [],
         list_complete: true,
         cacheStatus: null,
-      });
+      } as KVNamespaceListResult<unknown, string>);
 
       const result = await storage.getAll();
 
@@ -86,13 +86,11 @@ describe('KVStorage', () => {
 
     it('should use KV List API with todos: prefix', async () => {
       vi.mocked(mockKV.list).mockResolvedValue({
-        keys: [
-          { name: 'todos:id1', expiration: undefined, metadata: undefined },
-        ],
+        keys: [{ name: 'todos:id1', expiration: undefined, metadata: undefined }],
         list_complete: true,
         cacheStatus: null,
-      });
-      vi.mocked(mockKV.get).mockResolvedValue(null);
+      } as KVNamespaceListResult<unknown, string>);
+      vi.mocked(mockKV.get).mockResolvedValue(null as any);
 
       await storage.getAll();
 
@@ -120,11 +118,11 @@ describe('KVStorage', () => {
         ],
         list_complete: true,
         cacheStatus: null,
-      });
+      } as KVNamespaceListResult<unknown, string>);
 
       vi.mocked(mockKV.get)
-        .mockResolvedValueOnce(JSON.stringify(todo1))
-        .mockResolvedValueOnce(JSON.stringify(todo2));
+        .mockResolvedValueOnce(JSON.stringify(todo1) as any)
+        .mockResolvedValueOnce(JSON.stringify(todo2) as any);
 
       const result = await storage.getAll();
 
@@ -151,11 +149,11 @@ describe('KVStorage', () => {
         ],
         list_complete: true,
         cacheStatus: null,
-      });
+      } as KVNamespaceListResult<unknown, string>);
 
       vi.mocked(mockKV.get)
-        .mockResolvedValueOnce(JSON.stringify(todo1))
-        .mockResolvedValueOnce(null); // KV returns null for non-existent key
+        .mockResolvedValueOnce(JSON.stringify(todo1) as any)
+        .mockResolvedValueOnce(null as any); // KV returns null for non-existent key
 
       const result = await storage.getAll();
 
@@ -181,29 +179,25 @@ describe('KVStorage', () => {
         ],
         list_complete: true,
         cacheStatus: null,
-      });
+      } as KVNamespaceListResult<unknown, string>);
 
-      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo));
+      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo) as any);
 
       const result = await storage.getAll();
 
       expect(result[0]).toEqual(todo);
-      expect(typeof result[0].title).toBe('string');
-      expect(typeof result[0].completed).toBe('boolean');
+      expect(typeof result[0]!.title).toBe('string');
+      expect(typeof result[0]!.completed).toBe('boolean');
     });
   });
 
   describe('getById()', () => {
     it('should return null when Todo does not exist', async () => {
-      vi.mocked(mockKV.get).mockResolvedValue(null);
+      vi.mocked(mockKV.get).mockResolvedValue(null as any);
 
-      const result = await storage.getById(
-        '550e8400-e29b-41d4-a716-446655440000'
-      );
+      const result = await storage.getById('550e8400-e29b-41d4-a716-446655440000');
 
-      expect(mockKV.get).toHaveBeenCalledWith(
-        'todos:550e8400-e29b-41d4-a716-446655440000'
-      );
+      expect(mockKV.get).toHaveBeenCalledWith('todos:550e8400-e29b-41d4-a716-446655440000');
       expect(result).toBeNull();
     });
 
@@ -215,15 +209,11 @@ describe('KVStorage', () => {
         createdAt: '2025-10-27T10:30:00.000Z',
       };
 
-      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo));
+      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo) as any);
 
-      const result = await storage.getById(
-        '550e8400-e29b-41d4-a716-446655440000'
-      );
+      const result = await storage.getById('550e8400-e29b-41d4-a716-446655440000');
 
-      expect(mockKV.get).toHaveBeenCalledWith(
-        'todos:550e8400-e29b-41d4-a716-446655440000'
-      );
+      expect(mockKV.get).toHaveBeenCalledWith('todos:550e8400-e29b-41d4-a716-446655440000');
       expect(result).toEqual(todo);
     });
 
@@ -235,11 +225,9 @@ describe('KVStorage', () => {
         createdAt: '2025-10-27T10:30:00.000Z',
       };
 
-      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo));
+      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo) as any);
 
-      const result = await storage.getById(
-        '123e4567-e89b-12d3-a456-426614174000'
-      );
+      const result = await storage.getById('123e4567-e89b-12d3-a456-426614174000');
 
       expect(result?.id).toBe(todo.id);
       expect(result?.title).toBe(todo.title);
@@ -248,7 +236,7 @@ describe('KVStorage', () => {
     });
 
     it('should use correct key format todos:{id}', async () => {
-      vi.mocked(mockKV.get).mockResolvedValue(null);
+      vi.mocked(mockKV.get).mockResolvedValue(null as any);
 
       await storage.getById('test-id-123');
 
@@ -258,12 +246,11 @@ describe('KVStorage', () => {
 
   describe('update()', () => {
     it('should return null when Todo does not exist', async () => {
-      vi.mocked(mockKV.get).mockResolvedValue(null);
+      vi.mocked(mockKV.get).mockResolvedValue(null as any);
 
-      const result = await storage.update(
-        '550e8400-e29b-41d4-a716-446655440000',
-        { title: 'Updated' }
-      );
+      const result = await storage.update('550e8400-e29b-41d4-a716-446655440000', {
+        title: 'Updated',
+      });
 
       expect(result).toBeNull();
     });
@@ -276,13 +263,10 @@ describe('KVStorage', () => {
         createdAt: '2025-10-27T10:30:00.000Z',
       };
 
-      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(existingTodo));
+      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(existingTodo) as any);
 
       const updates = { title: 'Updated Title' };
-      const result = await storage.update(
-        '550e8400-e29b-41d4-a716-446655440000',
-        updates
-      );
+      const result = await storage.update('550e8400-e29b-41d4-a716-446655440000', updates);
 
       expect(result?.title).toBe('Updated Title');
       expect(result?.completed).toBe(false); // Unchanged
@@ -298,7 +282,7 @@ describe('KVStorage', () => {
         createdAt: '2025-10-27T10:30:00.000Z',
       };
 
-      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(existingTodo));
+      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(existingTodo) as any);
 
       // Try to update id and createdAt (should be ignored)
       const updates = {
@@ -307,10 +291,7 @@ describe('KVStorage', () => {
         createdAt: '2025-10-28T00:00:00.000Z',
       };
 
-      const result = await storage.update(
-        '550e8400-e29b-41d4-a716-446655440000',
-        updates
-      );
+      const result = await storage.update('550e8400-e29b-41d4-a716-446655440000', updates);
 
       expect(result?.id).toBe('550e8400-e29b-41d4-a716-446655440000'); // Original ID
       expect(result?.createdAt).toBe('2025-10-27T10:30:00.000Z'); // Original createdAt
@@ -325,12 +306,11 @@ describe('KVStorage', () => {
         createdAt: '2025-10-27T10:30:00.000Z',
       };
 
-      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(existingTodo));
+      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(existingTodo) as any);
 
-      const result = await storage.update(
-        '550e8400-e29b-41d4-a716-446655440000',
-        { title: 'New Title' }
-      );
+      const result = await storage.update('550e8400-e29b-41d4-a716-446655440000', {
+        title: 'New Title',
+      });
 
       expect(result?.title).toBe('New Title');
       expect(result?.completed).toBe(false);
@@ -344,12 +324,11 @@ describe('KVStorage', () => {
         createdAt: '2025-10-27T10:30:00.000Z',
       };
 
-      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(existingTodo));
+      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(existingTodo) as any);
 
-      const result = await storage.update(
-        '550e8400-e29b-41d4-a716-446655440000',
-        { completed: true }
-      );
+      const result = await storage.update('550e8400-e29b-41d4-a716-446655440000', {
+        completed: true,
+      });
 
       expect(result?.title).toBe('Original');
       expect(result?.completed).toBe(true);
@@ -363,7 +342,7 @@ describe('KVStorage', () => {
         createdAt: '2025-10-27T10:30:00.000Z',
       };
 
-      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(existingTodo));
+      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(existingTodo) as any);
 
       await storage.update('550e8400-e29b-41d4-a716-446655440000', {
         title: 'Updated',
@@ -383,11 +362,9 @@ describe('KVStorage', () => {
 
   describe('delete()', () => {
     it('should return false when Todo does not exist', async () => {
-      vi.mocked(mockKV.get).mockResolvedValue(null);
+      vi.mocked(mockKV.get).mockResolvedValue(null as any);
 
-      const result = await storage.delete(
-        '550e8400-e29b-41d4-a716-446655440000'
-      );
+      const result = await storage.delete('550e8400-e29b-41d4-a716-446655440000');
 
       expect(result).toBe(false);
       expect(mockKV.delete).not.toHaveBeenCalled();
@@ -401,13 +378,11 @@ describe('KVStorage', () => {
         createdAt: '2025-10-27T10:30:00.000Z',
       };
 
-      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo));
+      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo) as any);
 
       await storage.delete('550e8400-e29b-41d4-a716-446655440000');
 
-      expect(mockKV.get).toHaveBeenCalledWith(
-        'todos:550e8400-e29b-41d4-a716-446655440000'
-      );
+      expect(mockKV.get).toHaveBeenCalledWith('todos:550e8400-e29b-41d4-a716-446655440000');
     });
 
     it('should delete Todo from KV and return true', async () => {
@@ -418,15 +393,11 @@ describe('KVStorage', () => {
         createdAt: '2025-10-27T10:30:00.000Z',
       };
 
-      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo));
+      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo) as any);
 
-      const result = await storage.delete(
-        '550e8400-e29b-41d4-a716-446655440000'
-      );
+      const result = await storage.delete('550e8400-e29b-41d4-a716-446655440000');
 
-      expect(mockKV.delete).toHaveBeenCalledWith(
-        'todos:550e8400-e29b-41d4-a716-446655440000'
-      );
+      expect(mockKV.delete).toHaveBeenCalledWith('todos:550e8400-e29b-41d4-a716-446655440000');
       expect(result).toBe(true);
     });
 
@@ -438,7 +409,7 @@ describe('KVStorage', () => {
         createdAt: '2025-10-27T10:30:00.000Z',
       };
 
-      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo));
+      vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo) as any);
 
       await storage.delete('test-id');
 

@@ -156,11 +156,7 @@ app.get('/', (c) => {
  * 定義されていないルートへのアクセスに対して404エラーを返します。
  */
 app.notFound((_c) => {
-  return errorResponse(
-    ERROR_CODES.NOT_FOUND,
-    'The requested endpoint does not exist',
-    404
-  );
+  return errorResponse(ERROR_CODES.NOT_FOUND, 'The requested endpoint does not exist', 404);
 });
 
 /**
