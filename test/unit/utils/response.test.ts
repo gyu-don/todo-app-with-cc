@@ -87,44 +87,32 @@ describe('Response Utilities', () => {
         400
       );
 
-      const body = await response.json();
+      const body = (await response.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('VALIDATION_ERROR');
       expect(body.error.message).toContain('Title');
       expect(response.status).toBe(400);
     });
 
     it('should handle UNAUTHORIZED error', async () => {
-      const response = errorResponse(
-        ERROR_CODES.UNAUTHORIZED,
-        'Invalid API key',
-        401
-      );
+      const response = errorResponse(ERROR_CODES.UNAUTHORIZED, 'Invalid API key', 401);
 
-      const body = await response.json();
+      const body = (await response.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('UNAUTHORIZED');
       expect(response.status).toBe(401);
     });
 
     it('should handle NOT_FOUND error', async () => {
-      const response = errorResponse(
-        ERROR_CODES.NOT_FOUND,
-        'Todo item not found',
-        404
-      );
+      const response = errorResponse(ERROR_CODES.NOT_FOUND, 'Todo item not found', 404);
 
-      const body = await response.json();
+      const body = (await response.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('NOT_FOUND');
       expect(response.status).toBe(404);
     });
 
     it('should handle METHOD_NOT_ALLOWED error', async () => {
-      const response = errorResponse(
-        ERROR_CODES.METHOD_NOT_ALLOWED,
-        'Method not allowed',
-        405
-      );
+      const response = errorResponse(ERROR_CODES.METHOD_NOT_ALLOWED, 'Method not allowed', 405);
 
-      const body = await response.json();
+      const body = (await response.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('METHOD_NOT_ALLOWED');
       expect(response.status).toBe(405);
     });
@@ -136,7 +124,7 @@ describe('Response Utilities', () => {
         400
       );
 
-      const body = await response.json();
+      const body = (await response.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('TODO_LIMIT_REACHED');
       expect(response.status).toBe(400);
     });
@@ -148,20 +136,16 @@ describe('Response Utilities', () => {
         500
       );
 
-      const body = await response.json();
+      const body = (await response.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('INTERNAL_ERROR');
       expect(body.error.message).toBe('An unexpected error occurred');
       expect(response.status).toBe(500);
     });
 
     it('should not expose detailed stack traces in error message', async () => {
-      const response = errorResponse(
-        ERROR_CODES.INTERNAL_ERROR,
-        'Internal server error',
-        500
-      );
+      const response = errorResponse(ERROR_CODES.INTERNAL_ERROR, 'Internal server error', 500);
 
-      const body = await response.json();
+      const body = (await response.json()) as { error: { code: string; message: string } };
       // エラーメッセージに技術的な詳細（スタックトレース等）が含まれていないことを確認
       expect(body.error.message).not.toContain('at ');
       expect(body.error.message).not.toContain('.ts:');

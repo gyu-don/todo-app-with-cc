@@ -249,9 +249,7 @@ describe('Validation Utilities', () => {
       });
 
       it('should reject string that is too long', () => {
-        expect(
-          validateId('550e8400-e29b-41d4-a716-446655440000-extra')
-        ).toBe(false);
+        expect(validateId('550e8400-e29b-41d4-a716-446655440000-extra')).toBe(false);
       });
 
       it('should reject UUID without hyphens', () => {

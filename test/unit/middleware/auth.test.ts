@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { Hono } from 'hono';
 import { apiKeyAuth } from '../../../src/middleware/auth';
 import { Env } from '../../../src/models/env';
@@ -46,7 +46,7 @@ describe('Authentication Middleware', () => {
       const res = await app.request('/test');
 
       expect(res.status).toBe(401);
-      const body = await res.json();
+      const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body).toHaveProperty('error');
       expect(body.error.code).toBe('UNAUTHORIZED');
       expect(body.error.message).toContain('API key');
@@ -72,7 +72,7 @@ describe('Authentication Middleware', () => {
       });
 
       expect(res.status).toBe(401);
-      const body = await res.json();
+      const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body).toHaveProperty('error');
       expect(body.error.code).toBe('UNAUTHORIZED');
     });
@@ -212,7 +212,7 @@ describe('Authentication Middleware', () => {
       expect(res.status).toBe(401);
       expect(res.headers.get('Content-Type')).toBe('application/json');
 
-      const body = await res.json();
+      const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body).toHaveProperty('error');
       expect(body.error).toHaveProperty('code');
       expect(body.error).toHaveProperty('message');

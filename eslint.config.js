@@ -14,6 +14,22 @@ export default [
         sourceType: 'module',
         project: './tsconfig.json',
       },
+      globals: {
+        // Cloudflare Workers globals
+        Response: 'readonly',
+        Request: 'readonly',
+        console: 'readonly',
+        crypto: 'readonly',
+        KVNamespace: 'readonly',
+        fetch: 'readonly',
+        // Vitest globals
+        describe: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        vi: 'readonly',
+      },
     },
     plugins: {
       '@typescript-eslint': tseslint,

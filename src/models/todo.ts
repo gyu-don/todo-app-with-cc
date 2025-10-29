@@ -158,11 +158,11 @@ export const TODO_CONSTRAINTS = {
    * \x00-\x1F: C0制御文字 (NULL, タブ、改行等)
    * \x7F: DEL文字
    */
+  // eslint-disable-next-line no-control-regex
   CONTROL_CHARACTERS_REGEX: /[\x00-\x1F\x7F]/,
 
   /**
    * UUID v4形式の正規表現パターン (要件13.1)
    */
-  UUID_V4_REGEX:
-    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+  UUID_V4_REGEX: /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
 } as const;

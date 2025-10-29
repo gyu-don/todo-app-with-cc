@@ -87,9 +87,7 @@ export async function apiKeyAuth(
 
   // 環境変数が未設定の場合、すべてのリクエストを拒否
   if (!validKeysString || validKeysString.trim() === '') {
-    console.error(
-      'VALID_API_KEYS environment variable is not set. All requests will be rejected.'
-    );
+    console.error('VALID_API_KEYS environment variable is not set. All requests will be rejected.');
     return errorResponse(
       ERROR_CODES.UNAUTHORIZED,
       'Authentication is not configured. Please contact the administrator.',

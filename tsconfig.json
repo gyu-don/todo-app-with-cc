@@ -55,11 +55,12 @@
     },
 
     /* Cloudflare Workers Types */
-    "types": ["@cloudflare/workers-types", "vitest/globals"]
+    "types": ["./worker-configuration.d.ts", "vitest/globals"]
   },
   "include": [
     "src/**/*.ts",
-    "test/**/*.ts"
+    "test/**/*.ts",
+    "cloudflare-test.d.ts"
   ],
   "exclude": [
     "node_modules",

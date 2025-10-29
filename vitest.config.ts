@@ -5,6 +5,8 @@ import path from 'path';
 export default defineWorkersConfig({
   test: {
     globals: true,
+    // Disable snapshot serialization to avoid compatibility issues
+    snapshotSerializers: [],
     // Use Cloudflare Workers pool for integration tests
     poolOptions: {
       workers: {

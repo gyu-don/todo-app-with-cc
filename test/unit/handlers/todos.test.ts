@@ -64,7 +64,7 @@ describe('Todo Handlers', () => {
       });
 
       expect(res.status).toBe(400);
-      const body = await res.json();
+      const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('VALIDATION_ERROR');
     });
 
@@ -79,7 +79,7 @@ describe('Todo Handlers', () => {
       });
 
       expect(res.status).toBe(400);
-      const body = await res.json();
+      const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('VALIDATION_ERROR');
     });
 
@@ -95,7 +95,7 @@ describe('Todo Handlers', () => {
       });
 
       expect(res.status).toBe(400);
-      const body = await res.json();
+      const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('VALIDATION_ERROR');
     });
 
@@ -110,7 +110,7 @@ describe('Todo Handlers', () => {
       });
 
       expect(res.status).toBe(400);
-      const body = await res.json();
+      const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('VALIDATION_ERROR');
     });
 
@@ -134,7 +134,7 @@ describe('Todo Handlers', () => {
       });
 
       expect(res.status).toBe(400);
-      const body = await res.json();
+      const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('TODO_LIMIT_REACHED');
     });
 
@@ -159,7 +159,12 @@ describe('Todo Handlers', () => {
       });
 
       expect(res.status).toBe(201);
-      const body = await res.json();
+      const body = (await res.json()) as {
+        id: string;
+        title: string;
+        completed: boolean;
+        createdAt: string;
+      };
       expect(body.completed).toBe(false);
       expect(body.createdAt).toBeDefined();
     });
@@ -185,7 +190,12 @@ describe('Todo Handlers', () => {
       });
 
       expect(res.status).toBe(201);
-      const body = await res.json();
+      const body = (await res.json()) as {
+        id: string;
+        title: string;
+        completed: boolean;
+        createdAt: string;
+      };
       expect(body.id).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
       );
@@ -257,7 +267,12 @@ describe('Todo Handlers', () => {
       const res = await app.request('/todos');
 
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body = (await res.json()) as Array<{
+        id: string;
+        title: string;
+        completed: boolean;
+        createdAt: string;
+      }>;
       expect(body).toHaveLength(2);
       expect(body[0]).toHaveProperty('id', '1');
       expect(body[1]).toHaveProperty('id', '2');
@@ -320,7 +335,7 @@ describe('Todo Handlers', () => {
       const res = await app.request('/todos/550e8400-e29b-41d4-a716-446655440000');
 
       expect(res.status).toBe(404);
-      const body = await res.json();
+      const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('NOT_FOUND');
     });
 
@@ -331,7 +346,7 @@ describe('Todo Handlers', () => {
       const res = await app.request('/todos/invalid-id');
 
       expect(res.status).toBe(400);
-      const body = await res.json();
+      const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('VALIDATION_ERROR');
     });
   });
@@ -387,7 +402,7 @@ describe('Todo Handlers', () => {
       });
 
       expect(res.status).toBe(404);
-      const body = await res.json();
+      const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('NOT_FOUND');
     });
 
@@ -402,7 +417,7 @@ describe('Todo Handlers', () => {
       });
 
       expect(res.status).toBe(400);
-      const body = await res.json();
+      const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('VALIDATION_ERROR');
     });
 
@@ -417,7 +432,7 @@ describe('Todo Handlers', () => {
       });
 
       expect(res.status).toBe(400);
-      const body = await res.json();
+      const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('VALIDATION_ERROR');
     });
   });
@@ -459,7 +474,7 @@ describe('Todo Handlers', () => {
       });
 
       expect(res.status).toBe(404);
-      const body = await res.json();
+      const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('NOT_FOUND');
     });
 
@@ -472,7 +487,7 @@ describe('Todo Handlers', () => {
       });
 
       expect(res.status).toBe(400);
-      const body = await res.json();
+      const body = (await res.json()) as { error: { code: string; message: string } };
       expect(body.error.code).toBe('VALIDATION_ERROR');
     });
   });

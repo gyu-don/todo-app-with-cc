@@ -127,11 +127,7 @@ export function jsonResponse<T>(data: T, status: number): Response {
  *   - ファイルパス（".ts:", ".js:"）
  *   - 内部変数名や実装詳細
  */
-export function errorResponse(
-  code: ErrorCode,
-  message: string,
-  status: number
-): Response {
+export function errorResponse(code: ErrorCode, message: string, status: number): Response {
   const errorBody: ErrorResponse = {
     error: {
       code,

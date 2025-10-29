@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type {
-  ErrorResponse,
-  ErrorCode,
-} from '../../../src/models/error';
+import type { ErrorResponse, ErrorCode } from '../../../src/models/error';
 import { ERROR_CODES } from '../../../src/models/error';
 
 describe('Error Response Types', () => {
