@@ -16,11 +16,15 @@ beforeEach(async () => {
 describe('API Integration Tests', () => {
   describe('Health Check', () => {
     it('should return health status without authentication', async () => {
-      const res = await app.request('/', {
-        headers: {
-          Accept: 'application/json',
+      const res = await app.request(
+        '/',
+        {
+          headers: {
+            Accept: 'application/json',
+          },
         },
-      }, env);
+        env
+      );
 
       expect(res.status).toBe(200);
       const body = await res.json();
