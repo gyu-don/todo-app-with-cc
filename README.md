@@ -31,7 +31,7 @@ Cloudflare Workers上で動作する高性能なTodo管理アプリケーショ�
 
 ## 前提条件
 
-- Node.js 18.0.0以上
+- Node.js 20.0.0以上
 - npm または yarn
 - Cloudflareアカウント（デプロイ時）
 
@@ -434,67 +434,15 @@ wrangler secret list
 - テスト実行 (`npm test`)
 - ビルド検証 (`npm run build`)
 
-### CD（継続的デプロイ）
+### 現在のCI/CDステータス
 
-`.github/workflows/deploy.yml` - mainブランチへのプッシュで実行
+✅ **GitHub Actions CI設定済み**
+- 自動テスト・型チェック・リントが動作中
+- すべてのプッシュとPull Requestで実行
 
-**実行内容:**
-- テスト実行
-- Cloudflare Workersへ自動デプロイ
-
-### セットアップ方法
-
-1. **ワークフローファイルの配置**
-
-   `docs/github-workflows/workflows-example/workflows/` にあるワークフローファイルを `.github/workflows/` にコピーします:
-
-   ```bash
-   mkdir -p .github/workflows
-   cp docs/github-workflows/workflows-example/workflows/*.yml .github/workflows/
-   ```
-
-2. **Cloudflare API Tokenの取得**
-   - [Cloudflare Dashboard](https://dash.cloudflare.com/profile/api-tokens) にアクセス
-   - "Create Token" → "Edit Cloudflare Workers" テンプレートを選択
-   - 必要な権限を設定してトークンを生成
-
-3. **GitHubシークレットの設定**
-
-   リポジトリの Settings → Secrets and variables → Actions で以下を追加:
-
-   - `CLOUDFLARE_API_TOKEN`: 上記で取得したAPIトークン
-   - `CLOUDFLARE_ACCOUNT_ID`: CloudflareのAccount ID（Dashboardで確認可能）
-
-4. **ワークフローの有効化**
-
-   GitHubリポジトリにプッシュすると、自動的にワークフローが実行されます。
-
-### ワークフローのカスタマイズ
-
-**本番環境へのデプロイ:**
-
-`.github/workflows/deploy.yml`を編集して、環境を指定できます:
-
-```yaml
-- name: Deploy to Cloudflare Workers
-  uses: cloudflare/wrangler-action@v3
-  with:
-    apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-    accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-    environment: 'production'  # 本番環境を指定
-```
-
-**特定のブランチのみデプロイ:**
-
-`on.push.branches`を変更:
-
-```yaml
-on:
-  push:
-    branches:
-      - main
-      - staging  # stagingブランチも追加
-```
+📝 **追加情報**
+- CI/CDワークフローファイルはプロジェクトに直接含まれています
+- デプロイ設定については、Cloudflare API Tokenの設定が必要です
 
 ## ライセンス
 
