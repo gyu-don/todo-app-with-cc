@@ -161,6 +161,14 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
             background: #ee5a6f;
         }
 
+        .todo-item.dragging {
+            opacity: 0.5;
+        }
+
+        .todo-item.drag-over {
+            background: #e0e7ff;
+        }
+
         .error {
             padding: 12px;
             margin-bottom: 15px;
@@ -204,6 +212,8 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
             const [apiKey, setApiKey] = useState(localStorage.getItem('apiKey') || '');
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState('');
+            const [draggedId, setDraggedId] = useState(null);
+            const [dragOverIdx, setDragOverIdx] = useState(null);
 
             // API呼び出しヘルパー
             const apiCall = async (endpoint, options = {}) => {
@@ -294,6 +304,35 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
                 }
             };
 
+            // 並び替えAPI呼び出し
+            const reorderTodo = async (id, newPosition) => {
+                try {
+                    setError('');
+                    const result = await apiCall(\`/todos/\${id}/reorder\`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ newPosition }),
+                    });
+                    setTodos(result.todos);
+                } catch (err) {
+                    setError(err.message);
+                }
+            };
+
+            // ドラッグイベントハンドラ
+            const handleDragStart = (id) => setDraggedId(id);
+            const handleDragOver = (idx) => setDragOverIdx(idx);
+            const handleDragEnd = () => {
+                setDraggedId(null);
+                setDragOverIdx(null);
+            };
+            const handleDrop = (idx) => {
+                if (draggedId == null || idx == null) return;
+                const draggedTodo = todos.find(t => t.id === draggedId);
+                if (!draggedTodo || draggedTodo.position === idx) return;
+                reorderTodo(draggedId, idx);
+                handleDragEnd();
+            };
+
             // API Key保存
             useEffect(() => {
                 if (apiKey) {
@@ -338,8 +377,17 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
                         <div className="empty">Todoはありません</div>
                     ) : (
                         <ul className="todo-list">
-                            {todos.map(todo => (
-                                <li key={todo.id} className={\`todo-item \${todo.completed ? 'completed' : ''}\`}>
+                            {todos.map((todo, idx) => (
+                                <li
+                                    key={todo.id}
+                                    className={\`todo-item \${todo.completed ? 'completed' : ''} \${draggedId === todo.id ? 'dragging' : ''} \${dragOverIdx === idx ? 'drag-over' : ''}\`}
+                                    draggable
+                                    onDragStart={() => handleDragStart(todo.id)}
+                                    onDragOver={e => { e.preventDefault(); handleDragOver(idx); }}
+                                    onDrop={() => handleDrop(idx)}
+                                    onDragEnd={handleDragEnd}
+                                    style={draggedId === todo.id ? { opacity: 0.5 } : dragOverIdx === idx ? { background: '#e0e7ff' } : {}}
+                                >
                                     <input
                                         type="checkbox"
                                         checked={todo.completed}
@@ -348,6 +396,20 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
                                     <span>{todo.title}</span>
                                     <button onClick={() => deleteTodo(todo.id)}>
                                         削除
+                                    </button>
+                                    <button
+                                        onClick={() => reorderTodo(todo.id, Math.max(0, todo.position - 1))}
+                                        disabled={todo.position === 0}
+                                        style={{ marginLeft: '8px', background: '#667eea' }}
+                                    >
+                                        上へ移動
+                                    </button>
+                                    <button
+                                        onClick={() => reorderTodo(todo.id, Math.min(todos.length - 1, todo.position + 1))}
+                                        disabled={todo.position === todos.length - 1}
+                                        style={{ marginLeft: '4px', background: '#667eea' }}
+                                    >
+                                        下へ移動
                                     </button>
                                 </li>
                             ))}
