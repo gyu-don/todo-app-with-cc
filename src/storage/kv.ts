@@ -196,7 +196,7 @@ export class KVStorage implements IStorage {
    * ```typescript
    * const todo = await storage.getById('550e8400-e29b-41d4-a716-446655440000');
    * if (todo) {
-     *   console.log(`Found: ${todo.title}`);
+   *   console.log(`Found: ${todo.title}`);
    * } else {
    *   console.log('Todo not found');
    * }
@@ -332,7 +332,7 @@ export class KVStorage implements IStorage {
     id: string,
     newPosition: number
   ): T[] {
-    const oldIndex = todos.findIndex(t => t.id === id);
+    const oldIndex = todos.findIndex((t) => t.id === id);
     if (oldIndex === -1) return todos;
     const target = todos[oldIndex];
     if (!target) return todos;
@@ -353,11 +353,7 @@ export class KVStorage implements IStorage {
    */
   async updatePositions(todos: Todo[]): Promise<Todo[]> {
     // Save all todos in parallel
-    await Promise.all(
-      todos.map(todo =>
-        this.kv.put(this.getKey(todo.id), JSON.stringify(todo))
-      )
-    );
+    await Promise.all(todos.map((todo) => this.kv.put(this.getKey(todo.id), JSON.stringify(todo))));
     // Return sorted todos by position
     return [...todos].sort((a, b) => a.position - b.position);
   }

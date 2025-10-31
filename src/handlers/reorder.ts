@@ -18,7 +18,7 @@ export async function reorderHandler(c: Context) {
 
   // 全タスク取得
   const todos = await storage.getAll();
-  const target = todos.find(t => t.id === id);
+  const target = todos.find((t) => t.id === id);
   if (!target) {
     return c.json({ error: 'Todo not found' }, 404);
   }
