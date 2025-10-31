@@ -319,4 +319,42 @@ export class KVStorage implements IStorage {
 
     return true;
   }
+
+  /**
+   * Reorder positions of todos
+   * @param todos - array of todos with id and position
+   * @param id - id of the todo to move
+   * @param newPosition - new position to move to
+   * @returns new array of todos with updated positions
+   */
+  static reorderPositions<T extends { id: string; position: number }>(
+    todos: T[],
+    id: string,
+    newPosition: number
+  ): T[] {
+    const oldIndex = todos.findIndex((t) => t.id === id);
+    if (oldIndex === -1) return todos;
+    const target = todos[oldIndex];
+    if (!target) return todos;
+    if (target.position === newPosition) return todos;
+    // Sort by position
+    const sorted = [...todos].sort((a, b) => a.position - b.position);
+    const [moved] = sorted.splice(oldIndex, 1);
+    if (!moved) return todos;
+    sorted.splice(newPosition, 0, moved);
+    // Reassign positions
+    return sorted.map((t, i) => ({ ...t, position: i }));
+  }
+
+  /**
+   * Batch update positions of todos
+   * @param todos - array of todos with updated positions
+   * @returns sorted todos after update
+   */
+  async updatePositions(todos: Todo[]): Promise<Todo[]> {
+    // Save all todos in parallel
+    await Promise.all(todos.map((todo) => this.kv.put(this.getKey(todo.id), JSON.stringify(todo))));
+    // Return sorted todos by position
+    return [...todos].sort((a, b) => a.position - b.position);
+  }
 }

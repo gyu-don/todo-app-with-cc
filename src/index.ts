@@ -28,6 +28,7 @@ import {
   updateTodoHandler,
   deleteTodoHandler,
 } from './handlers/todos';
+import { reorderHandler } from './handlers/reorder';
 import { errorResponse } from './utils/response';
 import { ERROR_CODES } from './models/error';
 import { FRONTEND_HTML } from './frontend';
@@ -121,6 +122,11 @@ app.get('/todos/:id', async (c) => {
 app.put('/todos/:id', async (c) => {
   const storage = new KVStorage(c.env.TODO_KV);
   return updateTodoHandler(c, storage);
+});
+
+// PUT /todos/:id/reorder - 並び替えAPIエンドポイント追加
+app.put('/todos/:id/reorder', async (c) => {
+  return reorderHandler(c);
 });
 
 // DELETE /todos/:id - Todo削除（要件4.1-4.4）

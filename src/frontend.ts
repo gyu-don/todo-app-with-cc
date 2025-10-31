@@ -161,6 +161,14 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
             background: #ee5a6f;
         }
 
+        .todo-item.dragging {
+            opacity: 0.5;
+        }
+
+        .todo-item.drag-over {
+            background: #e0e7ff;
+        }
+
         .error {
             padding: 12px;
             margin-bottom: 15px;
@@ -204,6 +212,10 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
             const [apiKey, setApiKey] = useState(localStorage.getItem('apiKey') || '');
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState('');
+            const [draggedId, setDraggedId] = useState(null);
+            const [dragOverIdx, setDragOverIdx] = useState(null);
+            const [rollbackTodos, setRollbackTodos] = useState([]);
+            const [focusedIdx, setFocusedIdx] = useState(null);
 
             // API呼び出しヘルパー
             const apiCall = async (endpoint, options = {}) => {
@@ -294,6 +306,69 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
                 }
             };
 
+            // 並び替えAPI呼び出し
+            const reorderTodo = async (id, newPosition) => {
+                if (!apiKey) return;
+                setError('');
+                setRollbackTodos(todos); // Save for rollback
+                // 楽観的更新: すぐUI反映
+                const optimistic = [...todos];
+                const idx = optimistic.findIndex(t => t.id === id);
+                if (idx === -1 || optimistic[idx].position === newPosition) return;
+                const moved = optimistic.splice(idx, 1)[0];
+                optimistic.splice(newPosition, 0, moved);
+                // 連続したposition再計算
+                const updated = optimistic.map((t, i) => ({ ...t, position: i }));
+                setTodos(updated);
+                // API呼び出し
+                try {
+                    await apiCall(\`/todos/\${id}/reorder\`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ newPosition }),
+                    });
+                } catch (err) {
+                    // ロールバック
+                    setTodos(rollbackTodos);
+                    setError('並び替え失敗: ' + err.message);
+                }
+            };
+
+            // ドラッグイベントハンドラ
+            const handleDragStart = (id) => setDraggedId(id);
+            const handleDragOver = (idx) => setDragOverIdx(idx);
+            const handleDragEnd = () => {
+                setDraggedId(null);
+                setDragOverIdx(null);
+            };
+            const handleDrop = (idx) => {
+                if (draggedId == null || idx == null) return;
+                const draggedTodo = todos.find(t => t.id === draggedId);
+                if (!draggedTodo || draggedTodo.position === idx) return;
+                reorderTodo(draggedId, idx);
+                handleDragEnd();
+            };
+
+            // キーボード操作: Ctrl+↑/↓ で並び替え
+            const handleKeyDown = (e, idx, todo) => {
+                if (e.ctrlKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+                    e.preventDefault();
+                    const newIdx = e.key === 'ArrowUp' ? Math.max(0, idx - 1) : Math.min(todos.length - 1, idx + 1);
+                    if (newIdx !== idx) {
+                        reorderTodo(todo.id, newIdx);
+                        setFocusedIdx(newIdx);
+                    }
+                }
+            };
+
+            // フォーカス管理
+            useEffect(() => {
+                if (focusedIdx != null) {
+                    // eslint-disable-next-line no-undef
+                    const el = document.getElementById('todo-item-' + focusedIdx);
+                    if (el) el.focus();
+                }
+            }, [focusedIdx, todos]);
+
             // API Key保存
             useEffect(() => {
                 if (apiKey) {
@@ -338,8 +413,30 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
                         <div className="empty">Todoはありません</div>
                     ) : (
                         <ul className="todo-list">
-                            {todos.map(todo => (
-                                <li key={todo.id} className={\`todo-item \${todo.completed ? 'completed' : ''}\`}>
+                            {todos.map((todo, idx) => (
+                                <li
+                                    key={todo.id}
+                                    id={'todo-item-' + idx}
+                                    className={
+                                        'todo-item' +
+                                        (todo.completed ? ' completed' : '') +
+                                        (draggedId === todo.id ? ' dragging' : '') +
+                                        (dragOverIdx === idx ? ' drag-over' : '')
+                                    }
+                                    draggable
+                                    tabIndex={0}
+                                    onFocus={() => setFocusedIdx(idx)}
+                                    onKeyDown={e => handleKeyDown(e, idx, todo)}
+                                    onDragStart={() => handleDragStart(todo.id)}
+                                    onDragOver={e => { e.preventDefault(); handleDragOver(idx); }}
+                                    onDrop={() => handleDrop(idx)}
+                                    onDragEnd={handleDragEnd}
+                                    style={{
+                                        ...(draggedId === todo.id ? { opacity: 0.5 } : {}),
+                                        ...(dragOverIdx === idx ? { background: '#e0e7ff' } : {}),
+                                        ...(focusedIdx === idx ? { outline: '2px solid #667eea' } : {})
+                                    }}
+                                >
                                     <input
                                         type="checkbox"
                                         checked={todo.completed}
@@ -348,6 +445,24 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
                                     <span>{todo.title}</span>
                                     <button onClick={() => deleteTodo(todo.id)}>
                                         削除
+                                    </button>
+                                    <button
+                                        aria-label="上へ"
+                                        onClick={() => { reorderTodo(todo.id, Math.max(0, todo.position - 1)); setFocusedIdx(Math.max(0, idx - 1)); }}
+                                        disabled={todo.position === 0}
+                                        style={{ marginLeft: '8px', background: '#667eea' }}
+                                        tabIndex={0}
+                                    >
+                                        ▲
+                                    </button>
+                                    <button
+                                        aria-label="下へ"
+                                        onClick={() => { reorderTodo(todo.id, Math.min(todos.length - 1, todo.position + 1)); setFocusedIdx(Math.min(todos.length - 1, idx + 1)); }}
+                                        disabled={todo.position === todos.length - 1}
+                                        style={{ marginLeft: '4px', background: '#667eea' }}
+                                        tabIndex={0}
+                                    >
+                                        ▼
                                     </button>
                                 </li>
                             ))}
