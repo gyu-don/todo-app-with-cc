@@ -723,6 +723,209 @@ Workers KVはKey-Valueストアのため、インデックスは不要です。
 - Phase 1: バックエンドデプロイ（positionフィールドの自動追加）
 - Phase 2: フロントエンドデプロイ（並び替えUI追加）
 
+## Data Consistency and Concurrency
+
+### 整合性モデル
+
+#### Workers KV Eventual Consistency
+
+**特性**:
+- Workers KVは**eventual consistency**（最終的整合性）を提供
+- グローバル反映まで最大60秒かかる可能性がある
+- 同一エッジロケーションでは通常数秒以内に反映される
+
+**並び替え操作への影響**:
+```typescript
+// 現在の実装（並列書き込み）
+async updatePositions(updates: Todo[]): Promise<Todo[]> {
+  // 並列書き込み：パフォーマンス最適化
+  await Promise.all(
+    updates.map(todo =>
+      this.kv.put(this.getKey(todo.id), JSON.stringify(todo))
+    )
+  );
+
+  // 更新後の全Todoを取得し、position順にソート
+  const allTodos = await this.getAll();
+  return allTodos.sort((a, b) => a.position - b.position);
+}
+```
+
+**並列書き込みの安全性**:
+- ✅ **書き込み自体の成功**: 各`kv.put()`は個別にアトミックに完了
+- ✅ **Workers KV保証**: 各キーへの最終書き込みが勝利（Last Write Wins）
+- ⚠️ **書き込み順序**: `Promise.all`は完了順序を保証しない
+- ⚠️ **グローバル反映順序**: eventual consistencyにより、エッジロケーション間で一時的に順序が異なる可能性
+
+**実用上の影響**:
+1. **単一デバイス操作**: 同一エッジロケーションでの操作では通常数秒以内に整合性が確保される
+2. **複数デバイス同時操作**: 競合の可能性がある（後述）
+
+### コンカレンシー制約
+
+#### 単一ユーザー・単一操作の前提
+
+**明示的な制約**:
+- ✅ **サポート**: 単一ユーザーが単一デバイスから順次並び替え操作を実行
+- ⚠️ **制限付きサポート**: 単一ユーザーが複数デバイスから操作（Last Write Wins）
+- ❌ **未サポート**: 複数ユーザー・複数デバイスからの同時並び替え操作
+
+**競合シナリオと動作**:
+
+**シナリオ1: 同一デバイスでの連続操作**
+```
+1. ユーザーがタスクAを移動
+2. すぐにタスクBを移動
+→ デバウンス（300ms）により、最後の操作のみがAPIに送信される
+→ 問題なし
+```
+
+**シナリオ2: 複数デバイスからの同時操作（制限付きサポート）**
+```
+デバイス1: タスクAを位置0→2に移動（時刻T）
+デバイス2: タスクBを位置3→1に移動（時刻T+1秒）
+
+Workers KV動作:
+- デバイス1の書き込みが完了（position: A=2, affected tasks updated）
+- デバイス2の書き込みが完了（position: B=1, affected tasks updated）
+- Last Write Winsにより、デバイス2の書き込みが最終状態
+
+結果:
+- 両方の操作が反映されるが、中間状態が一時的に不整合になる可能性
+- eventual consistencyにより、数秒後には全エッジで同じ状態に収束
+- ユーザーは各デバイスでAPI成功レスポンスを受け取る
+```
+
+**リスク評価**:
+- **発生頻度**: 極めて低い（Todo管理で複数デバイスから同時に並び替えることは稀）
+- **影響範囲**: 一時的な不整合（数秒で自動修復）
+- **ユーザー体験**: タスク順序が意図と異なる可能性があるが、リロードで正常化
+- **データ損失**: なし（タスク自体は削除されない、positionのみが変更される）
+
+### トレードオフ分析
+
+#### Option 1: 並列書き込み（現在の設計）
+
+**実装**:
+```typescript
+await Promise.all(
+  updates.map(todo => this.kv.put(this.getKey(todo.id), JSON.stringify(todo)))
+);
+```
+
+**メリット**:
+- ✅ パフォーマンス要件を満たす（50ms P95）
+- ✅ 複数Todo更新を高速に完了（5タスク更新で50ms、50タスクでも100-150ms程度）
+- ✅ Workers KVの分散アーキテクチャに適合
+
+**デメリット**:
+- ⚠️ 複数デバイス同時操作で一時的な不整合の可能性
+- ⚠️ eventual consistencyによる遅延
+
+**適用ケース**: 現在のMVP（個人用Todo管理）
+
+#### Option 2: 順次書き込み（代替案）
+
+**実装**:
+```typescript
+// 順次書き込み：順序を保証
+for (const todo of updates) {
+  await this.kv.put(this.getKey(todo.id), JSON.stringify(todo));
+}
+```
+
+**メリット**:
+- ✅ 書き込み順序が保証される
+- ✅ Workers KVへの負荷が分散される
+
+**デメリット**:
+- ❌ パフォーマンス要件を満たせない可能性（50タスク更新で2.5秒以上）
+- ❌ eventual consistencyは依然として存在（順次書き込みでも解決しない）
+- ❌ ユーザー体験の低下（並び替え操作が遅く感じる）
+
+**適用ケース**: D1やDurable Objectsへの移行後、またはパフォーマンス要件の緩和時
+
+#### Option 3: 楽観的ロック（将来の拡張）
+
+**実装**:
+```typescript
+interface Todo {
+  // ... existing fields
+  position: number;
+  version: number;  // 新規: バージョン番号
+}
+
+async updatePositions(updates: Todo[]): Promise<Todo[]> {
+  // バージョンチェック
+  const current = await this.getAll();
+  const conflicts = updates.filter(update =>
+    current.find(c => c.id === update.id && c.version !== update.version)
+  );
+
+  if (conflicts.length > 0) {
+    throw new ConflictError('Position has been modified by another device');
+  }
+
+  // バージョンをインクリメントして書き込み
+  const versioned = updates.map(todo => ({ ...todo, version: todo.version + 1 }));
+  await Promise.all(
+    versioned.map(todo => this.kv.put(this.getKey(todo.id), JSON.stringify(todo)))
+  );
+
+  return versioned;
+}
+```
+
+**メリット**:
+- ✅ 競合を検出し、クライアントにエラーを返す
+- ✅ 並列書き込みのパフォーマンスを維持
+
+**デメリット**:
+- ⚠️ 実装の複雑さが増加
+- ⚠️ クライアント側で競合エラーのリトライ処理が必要
+- ⚠️ eventual consistencyは依然として存在
+
+**適用ケース**: 複数ユーザー・複数デバイスの本格的なサポートが必要な場合
+
+### 採用した戦略
+
+**Phase 1（現在のMVP）: 並列書き込み + 制約明記**
+
+**理由**:
+1. **実用上の問題発生頻度が極めて低い**: 個人用Todo管理で複数デバイスから同時に並び替えることは稀
+2. **パフォーマンス要件を満たす**: 要件8.3（50ms P95）を確実に達成
+3. **eventual consistencyの受容**: Todo管理では数秒の遅延は許容範囲
+4. **シンプルさ**: 実装が簡潔で、バグのリスクが低い
+
+**明示的な制約**:
+- 複数デバイスからの同時並び替え操作は**制限付きサポート**
+- Last Write Winsモデルを採用
+- eventual consistencyにより、一時的な不整合が発生する可能性
+- リロードまたは数秒待機で自動修復
+
+### 将来の改善策
+
+**Phase 2（将来的な拡張）**:
+
+1. **Cloudflare D1への移行**:
+   - SQLiteベースの強い整合性
+   - トランザクションサポート
+   - 複数行の原子的更新
+
+2. **Durable Objectsの採用**:
+   - 単一のグローバル一貫性を持つオブジェクト
+   - 強い整合性保証
+   - リアルタイム同期
+
+3. **楽観的ロックの実装**:
+   - バージョン番号管理
+   - 競合検出とクライアント側リトライ
+
+**移行トリガー**:
+- ユーザーから複数デバイス同時操作での問題報告が増加
+- チームコラボレーション機能の追加
+- より強い整合性要件の発生
+
 ## Error Handling
 
 ### エラー戦略
@@ -1067,10 +1270,14 @@ Workers KVの制約内で最適化します。
 1. **無効なpositionでのAPI呼び出し**: バリデーションで防御
 2. **存在しないtodoIdでのAPI呼び出し**: 404 Not Foundを返す
 3. **並び替えの大量実行（DoS）**: Cloudflare Bot ManagementとAccess認証で防御
-4. **競合状態**: 単一ユーザー前提のため、競合は発生しない
+4. **競合状態（複数デバイス同時操作）**: 制限付きサポート（詳細は「Data Consistency and Concurrency」セクション参照）
+   - Last Write Winsモデルを採用
+   - eventual consistencyにより一時的な不整合が発生する可能性
+   - 実用上の影響は最小限（個人用Todo管理での同時操作は稀）
 
 **対策**:
 - 既存のCloudflare Access、API Key認証、Bot Managementで十分
+- 競合状態は設計上の制約として明記（データ損失なし、自動修復）
 - 新たなセキュリティ対策は不要
 
 ## Migration Strategy
@@ -1204,6 +1411,8 @@ async getAll(): Promise<Todo[]> {
 - [x] コンポーネントに目的、主要機能、インターフェース設計が含まれている
 - [x] データモデルが個別に文書化されている
 - [x] 既存システムとの統合が説明されている
+- [x] データ整合性とコンカレンシーの制約が明記されている
+- [x] トレードオフ分析が実施され、採用した戦略が正当化されている
 - [x] エラーハンドリング戦略が明確である
 - [x] テスト戦略が包括的である
 - [x] パフォーマンス目標が定義されている
