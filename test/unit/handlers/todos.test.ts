@@ -31,6 +31,7 @@ describe('Todo Handlers', () => {
         title: 'Test Todo',
         completed: false,
         createdAt: '2025-10-27T15:00:00.000Z',
+        position: 0,
       };
 
       (mockStorage.getAll as any).mockResolvedValue([]);
@@ -120,6 +121,7 @@ describe('Todo Handlers', () => {
         title: `Todo ${i}`,
         completed: false,
         createdAt: new Date().toISOString(),
+        position: i,
       }));
 
       (mockStorage.getAll as any).mockResolvedValue(existingTodos);
@@ -144,6 +146,7 @@ describe('Todo Handlers', () => {
         title: 'Test Todo',
         completed: false,
         createdAt: '2025-10-27T15:00:00.000Z',
+        position: 0,
       };
 
       (mockStorage.getAll as any).mockResolvedValue([]);
@@ -175,6 +178,7 @@ describe('Todo Handlers', () => {
         title: 'Test Todo',
         completed: false,
         createdAt: '2025-10-27T15:00:00.000Z',
+        position: 0,
       };
 
       (mockStorage.getAll as any).mockResolvedValue([]);
@@ -207,6 +211,7 @@ describe('Todo Handlers', () => {
         title: 'Test Todo',
         completed: false,
         createdAt: '2025-10-27T15:00:00.000Z',
+        position: 0,
       };
 
       (mockStorage.getAll as any).mockResolvedValue([]);
@@ -250,12 +255,14 @@ describe('Todo Handlers', () => {
           title: 'Todo 1',
           completed: false,
           createdAt: '2025-10-27T15:00:00.000Z',
+          position: 0,
         },
         {
           id: '2',
           title: 'Todo 2',
           completed: true,
           createdAt: '2025-10-27T15:01:00.000Z',
+          position: 1,
         },
       ];
 
@@ -311,6 +318,7 @@ describe('Todo Handlers', () => {
         title: 'Test Todo',
         completed: false,
         createdAt: '2025-10-27T15:00:00.000Z',
+        position: 0,
       };
 
       (mockStorage.getById as any).mockResolvedValue(mockTodo);
@@ -370,6 +378,7 @@ describe('Todo Handlers', () => {
         title: 'Updated Title',
         completed: true,
         createdAt: '2025-10-27T15:00:00.000Z',
+        position: 0,
       };
 
       (mockStorage.update as any).mockResolvedValue(updatedTodo);

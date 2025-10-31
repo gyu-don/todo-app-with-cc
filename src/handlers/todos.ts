@@ -95,11 +95,13 @@ export async function createTodoHandler(
     const id = crypto.randomUUID();
 
     // デフォルト値を設定（要件1.4, 1.5, 13.4）
+    // 新規タスクは最後の位置に配置（task-reordering要件1.2）
     const newTodo: Todo = {
       id,
       title: body.title,
       completed: false, // デフォルト: 未完了
       createdAt: new Date().toISOString(), // ISO 8601形式
+      position: existingTodos.length, // 現在のタスク総数（最後の位置）
     };
 
     // ストレージに保存

@@ -24,11 +24,14 @@
  * - completedは真偽値でなければならない (要件12.5)
  * - createdAtは作成時に設定され、以降変更されない
  * - idとcreatedAtは更新操作で変更してはならない
+ * - positionは0から始まる連続した整数でなければならない (task-reordering要件1.1)
+ * - 新規作成時、positionは現在のタスク総数（最後の位置）に設定される (task-reordering要件1.2)
  *
  * @property {string} id - UUID v4形式の一意な識別子
  * @property {string} title - Todoのタイトル (1-500文字)
  * @property {boolean} completed - 完了状態 (デフォルト: false)
  * @property {string} createdAt - 作成日時 (ISO 8601形式)
+ * @property {number} position - 表示順序 (0から始まる連続した整数)
  *
  * @example
  * ```typescript
@@ -36,7 +39,8 @@
  *   id: '550e8400-e29b-41d4-a716-446655440000',
  *   title: '買い物リストを作成する',
  *   completed: false,
- *   createdAt: '2025-10-27T10:30:00.000Z'
+ *   createdAt: '2025-10-27T10:30:00.000Z',
+ *   position: 0
  * };
  * ```
  */
@@ -45,6 +49,7 @@ export interface Todo {
   title: string; // 1-500文字、制御文字不可
   completed: boolean; // 完了状態
   createdAt: string; // ISO 8601形式 (例: "2025-10-27T10:30:00.000Z")
+  position: number; // 0から始まる連続した整数、タスクの表示順序
 }
 
 /**

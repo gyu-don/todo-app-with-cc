@@ -135,12 +135,19 @@ export class KVStorage implements IStorage {
    * - KV List APIでキー一覧を取得（50-100ms）
    * - Promise.allで全Todoを並行取得（エッジキャッシュで高速化）
    *
-   * @returns すべてのTodo項目の配列
+   * **自動position割り当て（マイグレーション対応）**:
+   * - positionフィールドがないTodoを検出
+   * - 連続した整数（0, 1, 2, ...）を自動割り当て
+   * - 更新されたTodoをWorkers KVに保存
+   * - task-reordering要件1.2に準拠
+   *
+   * @returns すべてのTodo項目の配列（position順にソート済み）
    *
    * @example
    * ```typescript
    * const todos = await storage.getAll();
    * console.log(`Total todos: ${todos.length}`);
+   * // Todosはposition順にソートされている
    * ```
    */
   async getAll(): Promise<Todo[]> {
@@ -151,10 +158,30 @@ export class KVStorage implements IStorage {
     // 並行してすべてのTodoを取得（パフォーマンス最適化）
     const todosJson = await Promise.all(keys.map((key) => this.kv.get(key)));
 
-    // nullをフィルタリングし、JSONをパース
-    return todosJson
+    // nullをフィルタリングし、JSONをパース（anyキャストで型チェックを回避、後でTodoに変換）
+    let todos = todosJson
       .filter((json): json is string => json !== null)
-      .map((json) => JSON.parse(json) as Todo);
+      .map((json) => JSON.parse(json) as any);
+
+    // positionフィールドがないTodoを検出し、自動割り当て
+    let needsUpdate = false;
+    todos = todos.map((todo: any, index: number) => {
+      if (todo.position === undefined) {
+        needsUpdate = true;
+        return { ...todo, position: index } as Todo;
+      }
+      return todo as Todo;
+    });
+
+    // 自動割り当てが発生した場合、Workers KVに保存
+    if (needsUpdate) {
+      await Promise.all(
+        todos.map((todo: Todo) => this.kv.put(this.getKey(todo.id), JSON.stringify(todo)))
+      );
+    }
+
+    // position順にソート（task-reordering要件1.4）
+    return todos.sort((a: Todo, b: Todo) => a.position - b.position);
   }
 
   /**
@@ -241,6 +268,11 @@ export class KVStorage implements IStorage {
    * 指定されたIDのTodo項目を削除します。
    * 存在確認を行ってから削除するため、存在しないIDの場合はfalseを返します。
    *
+   * **位置調整（task-reordering）**:
+   * - 削除されたタスクより後ろの位置にあるタスクのpositionを-1
+   * - 連続した整数を維持（0, 1, 2, ...）
+   * - task-reordering要件1.3に準拠
+   *
    * @param id - Todo項目のID（UUID v4形式）
    * @returns 削除に成功した場合はtrue、該当IDが存在しない場合はfalse
    *
@@ -255,15 +287,35 @@ export class KVStorage implements IStorage {
    * ```
    */
   async delete(id: string): Promise<boolean> {
-    // 存在確認
+    // 存在確認と削除対象の位置を取得
     const existing = await this.getById(id);
     if (existing === null) {
       return false;
     }
 
+    const deletedPosition = existing.position;
+
     // Todoを削除
     const key = this.getKey(id);
     await this.kv.delete(key);
+
+    // 削除後、後ろのタスクの位置を調整（task-reordering要件1.3）
+    const allTodos = await this.getAll();
+
+    // 削除されたタスクより後ろの位置にあるタスクを特定し、positionを-1
+    const todosToUpdate = allTodos.filter((todo) => todo.position > deletedPosition);
+
+    if (todosToUpdate.length > 0) {
+      // position を-1して保存
+      await Promise.all(
+        todosToUpdate.map((todo) =>
+          this.kv.put(
+            this.getKey(todo.id),
+            JSON.stringify({ ...todo, position: todo.position - 1 })
+          )
+        )
+      );
+    }
 
     return true;
   }
