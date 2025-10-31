@@ -214,6 +214,7 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
             const [error, setError] = useState('');
             const [draggedId, setDraggedId] = useState(null);
             const [dragOverIdx, setDragOverIdx] = useState(null);
+            const [rollbackTodos, setRollbackTodos] = useState([]);
 
             // API呼び出しヘルパー
             const apiCall = async (endpoint, options = {}) => {
@@ -306,15 +307,28 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
 
             // 並び替えAPI呼び出し
             const reorderTodo = async (id, newPosition) => {
+                if (!apiKey) return;
+                setError('');
+                setRollbackTodos(todos); // Save for rollback
+                // 楽観的更新: すぐUI反映
+                const optimistic = [...todos];
+                const idx = optimistic.findIndex(t => t.id === id);
+                if (idx === -1 || optimistic[idx].position === newPosition) return;
+                const moved = optimistic.splice(idx, 1)[0];
+                optimistic.splice(newPosition, 0, moved);
+                // 連続したposition再計算
+                const updated = optimistic.map((t, i) => ({ ...t, position: i }));
+                setTodos(updated);
+                // API呼び出し
                 try {
-                    setError('');
-                    const result = await apiCall(\`/todos/\${id}/reorder\`, {
+                    await apiCall(\`/todos/\${id}/reorder\`, {
                         method: 'PUT',
                         body: JSON.stringify({ newPosition }),
                     });
-                    setTodos(result.todos);
                 } catch (err) {
-                    setError(err.message);
+                    // ロールバック
+                    setTodos(rollbackTodos);
+                    setError('並び替え失敗: ' + err.message);
                 }
             };
 
@@ -402,14 +416,14 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
                                         disabled={todo.position === 0}
                                         style={{ marginLeft: '8px', background: '#667eea' }}
                                     >
-                                        上へ移動
+                                        上へ
                                     </button>
                                     <button
                                         onClick={() => reorderTodo(todo.id, Math.min(todos.length - 1, todo.position + 1))}
                                         disabled={todo.position === todos.length - 1}
                                         style={{ marginLeft: '4px', background: '#667eea' }}
                                     >
-                                        下へ移動
+                                        下へ
                                     </button>
                                 </li>
                             ))}
