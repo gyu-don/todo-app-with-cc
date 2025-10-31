@@ -1,12 +1,10 @@
 // src/handlers/reorder.ts
 import type { Context } from 'hono';
-import type { Todo } from '../models/todo';
-import type { IStorage } from '../storage/interface';
 import { KVStorage } from '../storage/kv';
 import { isValidUUIDv4 } from '../utils/validation';
 
 export async function reorderHandler(c: Context) {
-  const storage: IStorage = new KVStorage(c.env.TODO_KV);
+  const storage = new KVStorage(c.env.TODO_KV);
   const id = c.req.param('id');
   const { newPosition } = await c.req.json();
 
@@ -30,7 +28,7 @@ export async function reorderHandler(c: Context) {
 
   // 並び替えロジック
   const reordered = KVStorage.reorderPositions(todos, id, newPosition);
-  await storage.updatePositions(reordered);
+  await (storage as KVStorage).updatePositions(reordered);
 
   // レスポンス
   return c.json({ todos: reordered }, 200);
