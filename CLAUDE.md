@@ -16,6 +16,7 @@ Kiro-style Spec Driven Development implementation using claude code slash comman
 
 ### Active Specifications
 - **cloudflare-workers-todo**: Cloudflare Workers上にデプロイされるTodoアプリケーション
+- **task-reordering**: タスクの並び替え機能（ドラッグ&ドロップまたはボタン操作）
 - Check `.kiro/specs/` for active specifications
 - Use `/kiro:spec-status [feature-name]` to check progress
 
