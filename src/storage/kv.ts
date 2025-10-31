@@ -345,4 +345,20 @@ export class KVStorage implements IStorage {
     // Reassign positions
     return sorted.map((t, i) => ({ ...t, position: i }));
   }
+
+  /**
+   * Batch update positions of todos
+   * @param todos - array of todos with updated positions
+   * @returns sorted todos after update
+   */
+  async updatePositions(todos: Todo[]): Promise<Todo[]> {
+    // Save all todos in parallel
+    await Promise.all(
+      todos.map(todo =>
+        this.kv.put(this.getKey(todo.id), JSON.stringify(todo))
+      )
+    );
+    // Return sorted todos by position
+    return [...todos].sort((a, b) => a.position - b.position);
+  }
 }

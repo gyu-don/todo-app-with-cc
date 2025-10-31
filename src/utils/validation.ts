@@ -240,3 +240,13 @@ export const VALIDATION_ERRORS = {
    */
   TODO_LIMIT_REACHED: `Maximum todo limit (${TODO_CONSTRAINTS.MAX_TODO_COUNT}) has been reached`,
 } as const;
+
+/**
+ * Check if the given ID is a valid UUID v4.
+ *
+ * @param id - The ID to validate
+ * @returns True if the ID is a valid UUID v4, false otherwise
+ */
+export function isValidUUIDv4(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+}

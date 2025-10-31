@@ -713,4 +713,29 @@ describe('KVStorage', () => {
       expect(result.map(t => t.position)).toEqual([0, 1, 2]);
     });
   });
+
+  describe('updatePositions', () => {
+    it('should batch update positions and save all todos to KV', async () => {
+      const todos = [
+        { id: 'a', position: 0, title: 'A', completed: false, createdAt: '2025-10-27T10:30:00.000Z' },
+        { id: 'b', position: 1, title: 'B', completed: false, createdAt: '2025-10-27T10:31:00.000Z' },
+        { id: 'c', position: 2, title: 'C', completed: false, createdAt: '2025-10-27T10:32:00.000Z' },
+      ];
+      const storage = new KVStorage({
+        put: vi.fn(),
+        get: vi.fn(),
+        delete: vi.fn(),
+        list: vi.fn(),
+      } as unknown as KVNamespace);
+      const result = await storage.updatePositions(todos);
+      expect(result.map(t => t.id)).toEqual(['a', 'b', 'c']);
+      expect(result.map(t => t.position)).toEqual([0, 1, 2]);
+      todos.forEach(todo => {
+        expect(storage['kv'].put).toHaveBeenCalledWith(
+          `todos:${todo.id}`,
+          JSON.stringify(todo)
+        );
+      });
+    });
+  });
 });
