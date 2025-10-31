@@ -663,4 +663,54 @@ describe('KVStorage', () => {
       // This prefix is used in getAll() to retrieve all todo keys
     });
   });
+
+  describe('reorderPositions', () => {
+    it('should move a task up and update affected positions', () => {
+      const todos = [
+        { id: 'a', position: 0 },
+        { id: 'b', position: 1 },
+        { id: 'c', position: 2 },
+        { id: 'd', position: 3 },
+      ];
+      // Move 'c' from position 2 to position 0
+      const result = KVStorage.reorderPositions(todos, 'c', 0);
+      expect(result.map(t => t.id)).toEqual(['c', 'a', 'b', 'd']);
+      expect(result.map(t => t.position)).toEqual([0, 1, 2, 3]);
+    });
+
+    it('should move a task down and update affected positions', () => {
+      const todos = [
+        { id: 'a', position: 0 },
+        { id: 'b', position: 1 },
+        { id: 'c', position: 2 },
+        { id: 'd', position: 3 },
+      ];
+      // Move 'a' from position 0 to position 2
+      const result = KVStorage.reorderPositions(todos, 'a', 2);
+      expect(result.map(t => t.id)).toEqual(['b', 'c', 'a', 'd']);
+      expect(result.map(t => t.position)).toEqual([0, 1, 2, 3]);
+    });
+
+    it('should return original array if position does not change', () => {
+      const todos = [
+        { id: 'a', position: 0 },
+        { id: 'b', position: 1 },
+        { id: 'c', position: 2 },
+      ];
+      // Move 'b' from position 1 to position 1
+      const result = KVStorage.reorderPositions(todos, 'b', 1);
+      expect(result).toEqual(todos);
+    });
+
+    it('should update all positions to be continuous integers starting from 0', () => {
+      const todos = [
+        { id: 'a', position: 0 },
+        { id: 'b', position: 1 },
+        { id: 'c', position: 2 },
+      ];
+      // Move 'c' from position 2 to position 0
+      const result = KVStorage.reorderPositions(todos, 'c', 0);
+      expect(result.map(t => t.position)).toEqual([0, 1, 2]);
+    });
+  });
 });

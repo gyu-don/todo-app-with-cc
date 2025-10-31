@@ -32,7 +32,7 @@
   - _Requirements: 1.3_
 
 - [ ] 2. 並び替えロジックの実装
-- [ ] 2.1 タスク位置再計算アルゴリズムを実装
+- [x] 2.1 タスク位置再計算アルゴリズムを実装
   - 上方向移動時（oldPosition > newPosition）の位置再計算ロジック
   - 下方向移動時（oldPosition < newPosition）の位置再計算ロジック
   - 影響を受けるタスクのposition値を自動調整
