@@ -215,6 +215,7 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
             const [draggedId, setDraggedId] = useState(null);
             const [dragOverIdx, setDragOverIdx] = useState(null);
             const [rollbackTodos, setRollbackTodos] = useState([]);
+            const [focusedIdx, setFocusedIdx] = useState(null);
 
             // API呼び出しヘルパー
             const apiCall = async (endpoint, options = {}) => {
@@ -347,6 +348,27 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
                 handleDragEnd();
             };
 
+            // キーボード操作: Ctrl+↑/↓ で並び替え
+            const handleKeyDown = (e, idx, todo) => {
+                if (e.ctrlKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+                    e.preventDefault();
+                    const newIdx = e.key === 'ArrowUp' ? Math.max(0, idx - 1) : Math.min(todos.length - 1, idx + 1);
+                    if (newIdx !== idx) {
+                        reorderTodo(todo.id, newIdx);
+                        setFocusedIdx(newIdx);
+                    }
+                }
+            };
+
+            // フォーカス管理
+            useEffect(() => {
+                if (focusedIdx != null) {
+                    // eslint-disable-next-line no-undef
+                    const el = document.getElementById('todo-item-' + focusedIdx);
+                    if (el) el.focus();
+                }
+            }, [focusedIdx, todos]);
+
             // API Key保存
             useEffect(() => {
                 if (apiKey) {
@@ -394,13 +416,26 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
                             {todos.map((todo, idx) => (
                                 <li
                                     key={todo.id}
-                                    className={\`todo-item \${todo.completed ? 'completed' : ''} \${draggedId === todo.id ? 'dragging' : ''} \${dragOverIdx === idx ? 'drag-over' : ''}\`}
+                                    id={'todo-item-' + idx}
+                                    className={
+                                        'todo-item' +
+                                        (todo.completed ? ' completed' : '') +
+                                        (draggedId === todo.id ? ' dragging' : '') +
+                                        (dragOverIdx === idx ? ' drag-over' : '')
+                                    }
                                     draggable
+                                    tabIndex={0}
+                                    onFocus={() => setFocusedIdx(idx)}
+                                    onKeyDown={e => handleKeyDown(e, idx, todo)}
                                     onDragStart={() => handleDragStart(todo.id)}
                                     onDragOver={e => { e.preventDefault(); handleDragOver(idx); }}
                                     onDrop={() => handleDrop(idx)}
                                     onDragEnd={handleDragEnd}
-                                    style={draggedId === todo.id ? { opacity: 0.5 } : dragOverIdx === idx ? { background: '#e0e7ff' } : {}}
+                                    style={{
+                                        ...(draggedId === todo.id ? { opacity: 0.5 } : {}),
+                                        ...(dragOverIdx === idx ? { background: '#e0e7ff' } : {}),
+                                        ...(focusedIdx === idx ? { outline: '2px solid #667eea' } : {})
+                                    }}
                                 >
                                     <input
                                         type="checkbox"
@@ -412,18 +447,22 @@ export const FRONTEND_HTML = `<!DOCTYPE html>
                                         削除
                                     </button>
                                     <button
-                                        onClick={() => reorderTodo(todo.id, Math.max(0, todo.position - 1))}
+                                        aria-label="上へ"
+                                        onClick={() => { reorderTodo(todo.id, Math.max(0, todo.position - 1)); setFocusedIdx(Math.max(0, idx - 1)); }}
                                         disabled={todo.position === 0}
                                         style={{ marginLeft: '8px', background: '#667eea' }}
+                                        tabIndex={0}
                                     >
-                                        上へ
+                                        ▲
                                     </button>
                                     <button
-                                        onClick={() => reorderTodo(todo.id, Math.min(todos.length - 1, todo.position + 1))}
+                                        aria-label="下へ"
+                                        onClick={() => { reorderTodo(todo.id, Math.min(todos.length - 1, todo.position + 1)); setFocusedIdx(Math.min(todos.length - 1, idx + 1)); }}
                                         disabled={todo.position === todos.length - 1}
                                         style={{ marginLeft: '4px', background: '#667eea' }}
+                                        tabIndex={0}
                                     >
-                                        下へ
+                                        ▼
                                     </button>
                                 </li>
                             ))}
