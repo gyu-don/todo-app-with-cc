@@ -493,6 +493,12 @@ describe('KVStorage', () => {
       };
 
       vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo) as any);
+      // Mock list for getAll() call after deletion
+      vi.mocked(mockKV.list).mockResolvedValue({
+        keys: [],
+        list_complete: true,
+        cacheStatus: null,
+      } as KVNamespaceListResult<unknown, string>);
 
       await storage.delete('550e8400-e29b-41d4-a716-446655440000');
 
@@ -509,6 +515,12 @@ describe('KVStorage', () => {
       };
 
       vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo) as any);
+      // Mock list for getAll() call after deletion
+      vi.mocked(mockKV.list).mockResolvedValue({
+        keys: [],
+        list_complete: true,
+        cacheStatus: null,
+      } as KVNamespaceListResult<unknown, string>);
 
       const result = await storage.delete('550e8400-e29b-41d4-a716-446655440000');
 
@@ -526,10 +538,92 @@ describe('KVStorage', () => {
       };
 
       vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo) as any);
+      // Mock list for getAll() call after deletion
+      vi.mocked(mockKV.list).mockResolvedValue({
+        keys: [],
+        list_complete: true,
+        cacheStatus: null,
+      } as KVNamespaceListResult<unknown, string>);
 
       await storage.delete('test-id');
 
       expect(mockKV.delete).toHaveBeenCalledWith('todos:test-id');
+    });
+
+    it('should adjust positions of todos after deleted position', async () => {
+      const todoToDelete: Todo = {
+        id: 'id2',
+        title: 'Todo to Delete',
+        completed: false,
+        createdAt: '2025-10-27T10:30:00.000Z',
+        position: 1, // Middle position
+      };
+
+      const todo1: Todo = {
+        id: 'id1',
+        title: 'Todo 1',
+        completed: false,
+        createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
+      };
+
+      const todo3: Todo = {
+        id: 'id3',
+        title: 'Todo 3',
+        completed: false,
+        createdAt: '2025-10-27T10:30:00.000Z',
+        position: 2,
+      };
+
+      const todo4: Todo = {
+        id: 'id4',
+        title: 'Todo 4',
+        completed: false,
+        createdAt: '2025-10-27T10:30:00.000Z',
+        position: 3,
+      };
+
+      // Mock getById to return the todo being deleted
+      vi.mocked(mockKV.get)
+        .mockResolvedValueOnce(JSON.stringify(todoToDelete) as any) // getById call
+        .mockResolvedValueOnce(JSON.stringify(todo1) as any) // getAll call
+        .mockResolvedValueOnce(JSON.stringify(todoToDelete) as any) // getAll call
+        .mockResolvedValueOnce(JSON.stringify(todo3) as any) // getAll call
+        .mockResolvedValueOnce(JSON.stringify(todo4) as any); // getAll call
+
+      // Mock list to return all todo keys
+      vi.mocked(mockKV.list).mockResolvedValue({
+        keys: [
+          { name: 'todos:id1', expiration: undefined, metadata: undefined },
+          { name: 'todos:id2', expiration: undefined, metadata: undefined },
+          { name: 'todos:id3', expiration: undefined, metadata: undefined },
+          { name: 'todos:id4', expiration: undefined, metadata: undefined },
+        ],
+        list_complete: true,
+        cacheStatus: null,
+      } as KVNamespaceListResult<unknown, string>);
+
+      const result = await storage.delete('id2');
+
+      // Verify deletion
+      expect(result).toBe(true);
+      expect(mockKV.delete).toHaveBeenCalledWith('todos:id2');
+
+      // Verify position adjustments: todos after position 1 should be decremented
+      expect(mockKV.put).toHaveBeenCalledWith(
+        'todos:id3',
+        JSON.stringify({ ...todo3, position: 1 }) // Was 2, now 1
+      );
+      expect(mockKV.put).toHaveBeenCalledWith(
+        'todos:id4',
+        JSON.stringify({ ...todo4, position: 2 }) // Was 3, now 2
+      );
+
+      // Verify todo1 (position 0) was NOT updated
+      expect(mockKV.put).not.toHaveBeenCalledWith(
+        'todos:id1',
+        expect.anything()
+      );
     });
   });
 

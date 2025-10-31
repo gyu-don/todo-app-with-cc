@@ -270,6 +270,11 @@ export class KVStorage implements IStorage {
    * 指定されたIDのTodo項目を削除します。
    * 存在確認を行ってから削除するため、存在しないIDの場合はfalseを返します。
    *
+   * **位置調整（task-reordering）**:
+   * - 削除されたタスクより後ろの位置にあるタスクのpositionを-1
+   * - 連続した整数を維持（0, 1, 2, ...）
+   * - task-reordering要件1.3に準拠
+   *
    * @param id - Todo項目のID（UUID v4形式）
    * @returns 削除に成功した場合はtrue、該当IDが存在しない場合はfalse
    *
@@ -284,15 +289,35 @@ export class KVStorage implements IStorage {
    * ```
    */
   async delete(id: string): Promise<boolean> {
-    // 存在確認
+    // 存在確認と削除対象の位置を取得
     const existing = await this.getById(id);
     if (existing === null) {
       return false;
     }
 
+    const deletedPosition = existing.position;
+
     // Todoを削除
     const key = this.getKey(id);
     await this.kv.delete(key);
+
+    // 削除後、後ろのタスクの位置を調整（task-reordering要件1.3）
+    const allTodos = await this.getAll();
+
+    // 削除されたタスクより後ろの位置にあるタスクを特定し、positionを-1
+    const todosToUpdate = allTodos.filter((todo) => todo.position > deletedPosition);
+
+    if (todosToUpdate.length > 0) {
+      // position を-1して保存
+      await Promise.all(
+        todosToUpdate.map((todo) =>
+          this.kv.put(
+            this.getKey(todo.id),
+            JSON.stringify({ ...todo, position: todo.position - 1 })
+          )
+        )
+      );
+    }
 
     return true;
   }
