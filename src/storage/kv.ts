@@ -135,12 +135,19 @@ export class KVStorage implements IStorage {
    * - KV List APIでキー一覧を取得（50-100ms）
    * - Promise.allで全Todoを並行取得（エッジキャッシュで高速化）
    *
-   * @returns すべてのTodo項目の配列
+   * **自動position割り当て（マイグレーション対応）**:
+   * - positionフィールドがないTodoを検出
+   * - 連続した整数（0, 1, 2, ...）を自動割り当て
+   * - 更新されたTodoをWorkers KVに保存
+   * - task-reordering要件1.2に準拠
+   *
+   * @returns すべてのTodo項目の配列（position順にソート済み）
    *
    * @example
    * ```typescript
    * const todos = await storage.getAll();
    * console.log(`Total todos: ${todos.length}`);
+   * // Todosはposition順にソートされている
    * ```
    */
   async getAll(): Promise<Todo[]> {
@@ -151,10 +158,32 @@ export class KVStorage implements IStorage {
     // 並行してすべてのTodoを取得（パフォーマンス最適化）
     const todosJson = await Promise.all(keys.map((key) => this.kv.get(key)));
 
-    // nullをフィルタリングし、JSONをパース
-    return todosJson
+    // nullをフィルタリングし、JSONをパース（anyキャストで型チェックを回避、後でTodoに変換）
+    let todos = todosJson
       .filter((json): json is string => json !== null)
-      .map((json) => JSON.parse(json) as Todo);
+      .map((json) => JSON.parse(json) as any);
+
+    // positionフィールドがないTodoを検出し、自動割り当て
+    let needsUpdate = false;
+    todos = todos.map((todo: any, index: number) => {
+      if (todo.position === undefined) {
+        needsUpdate = true;
+        return { ...todo, position: index } as Todo;
+      }
+      return todo as Todo;
+    });
+
+    // 自動割り当てが発生した場合、Workers KVに保存
+    if (needsUpdate) {
+      await Promise.all(
+        todos.map((todo: Todo) =>
+          this.kv.put(this.getKey(todo.id), JSON.stringify(todo))
+        )
+      );
+    }
+
+    // position順にソート（task-reordering要件1.4）
+    return todos.sort((a: Todo, b: Todo) => a.position - b.position);
   }
 
   /**

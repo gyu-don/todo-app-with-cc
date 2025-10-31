@@ -25,6 +25,7 @@ describe('KVStorage', () => {
         title: 'Test Todo',
         completed: false,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
 
       const result = await storage.create(todo);
@@ -42,6 +43,7 @@ describe('KVStorage', () => {
         title: '買い物リストを作成する',
         completed: true,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
 
       const result = await storage.create(todo);
@@ -58,6 +60,7 @@ describe('KVStorage', () => {
         title: 'Immutable',
         completed: false,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
 
       const originalId = todo.id;
@@ -103,12 +106,14 @@ describe('KVStorage', () => {
         title: 'Todo 1',
         completed: false,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
       const todo2: Todo = {
         id: 'id2',
         title: 'Todo 2',
         completed: true,
         createdAt: '2025-10-27T10:31:00.000Z',
+        position: 1,
       };
 
       vi.mocked(mockKV.list).mockResolvedValue({
@@ -140,6 +145,7 @@ describe('KVStorage', () => {
         title: 'Todo 1',
         completed: false,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
 
       vi.mocked(mockKV.list).mockResolvedValue({
@@ -167,6 +173,7 @@ describe('KVStorage', () => {
         title: 'JSON Test',
         completed: false,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
 
       vi.mocked(mockKV.list).mockResolvedValue({
@@ -189,6 +196,105 @@ describe('KVStorage', () => {
       expect(typeof result[0]!.title).toBe('string');
       expect(typeof result[0]!.completed).toBe('boolean');
     });
+
+    it('should auto-assign position to todos that do not have position field', async () => {
+      // Simulate legacy todos without position field (stored as "any" to bypass type checking)
+      const todoWithoutPosition1 = {
+        id: 'id1',
+        title: 'Legacy Todo 1',
+        completed: false,
+        createdAt: '2025-10-27T10:30:00.000Z',
+        // position is missing
+      };
+      const todoWithoutPosition2 = {
+        id: 'id2',
+        title: 'Legacy Todo 2',
+        completed: false,
+        createdAt: '2025-10-27T10:31:00.000Z',
+        // position is missing
+      };
+
+      vi.mocked(mockKV.list).mockResolvedValue({
+        keys: [
+          { name: 'todos:id1', expiration: undefined, metadata: undefined },
+          { name: 'todos:id2', expiration: undefined, metadata: undefined },
+        ],
+        list_complete: true,
+        cacheStatus: null,
+      } as KVNamespaceListResult<unknown, string>);
+
+      vi.mocked(mockKV.get)
+        .mockResolvedValueOnce(JSON.stringify(todoWithoutPosition1) as any)
+        .mockResolvedValueOnce(JSON.stringify(todoWithoutPosition2) as any);
+
+      const result = await storage.getAll();
+
+      // Verify auto-assigned positions
+      expect(result).toHaveLength(2);
+      expect(result[0]!.position).toBe(0);
+      expect(result[1]!.position).toBe(1);
+
+      // Verify todos were saved back to KV with positions
+      expect(mockKV.put).toHaveBeenCalledTimes(2);
+      expect(mockKV.put).toHaveBeenCalledWith(
+        'todos:id1',
+        JSON.stringify({ ...todoWithoutPosition1, position: 0 })
+      );
+      expect(mockKV.put).toHaveBeenCalledWith(
+        'todos:id2',
+        JSON.stringify({ ...todoWithoutPosition2, position: 1 })
+      );
+    });
+
+    it('should sort todos by position in ascending order', async () => {
+      const todo1: Todo = {
+        id: 'id1',
+        title: 'Third',
+        completed: false,
+        createdAt: '2025-10-27T10:30:00.000Z',
+        position: 2,
+      };
+      const todo2: Todo = {
+        id: 'id2',
+        title: 'First',
+        completed: false,
+        createdAt: '2025-10-27T10:31:00.000Z',
+        position: 0,
+      };
+      const todo3: Todo = {
+        id: 'id3',
+        title: 'Second',
+        completed: false,
+        createdAt: '2025-10-27T10:32:00.000Z',
+        position: 1,
+      };
+
+      vi.mocked(mockKV.list).mockResolvedValue({
+        keys: [
+          { name: 'todos:id1', expiration: undefined, metadata: undefined },
+          { name: 'todos:id2', expiration: undefined, metadata: undefined },
+          { name: 'todos:id3', expiration: undefined, metadata: undefined },
+        ],
+        list_complete: true,
+        cacheStatus: null,
+      } as KVNamespaceListResult<unknown, string>);
+
+      vi.mocked(mockKV.get)
+        .mockResolvedValueOnce(JSON.stringify(todo1) as any)
+        .mockResolvedValueOnce(JSON.stringify(todo2) as any)
+        .mockResolvedValueOnce(JSON.stringify(todo3) as any);
+
+      const result = await storage.getAll();
+
+      // Should be sorted by position: 0, 1, 2
+      expect(result).toHaveLength(3);
+      expect(result[0]!.title).toBe('First');
+      expect(result[0]!.position).toBe(0);
+      expect(result[1]!.title).toBe('Second');
+      expect(result[1]!.position).toBe(1);
+      expect(result[2]!.title).toBe('Third');
+      expect(result[2]!.position).toBe(2);
+    });
   });
 
   describe('getById()', () => {
@@ -207,6 +313,7 @@ describe('KVStorage', () => {
         title: 'Retrieved Todo',
         completed: true,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
 
       vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo) as any);
@@ -223,6 +330,7 @@ describe('KVStorage', () => {
         title: 'Parse Test',
         completed: false,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
 
       vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo) as any);
@@ -261,6 +369,7 @@ describe('KVStorage', () => {
         title: 'Original Title',
         completed: false,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
 
       vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(existingTodo) as any);
@@ -280,6 +389,7 @@ describe('KVStorage', () => {
         title: 'Test',
         completed: false,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
 
       vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(existingTodo) as any);
@@ -304,6 +414,7 @@ describe('KVStorage', () => {
         title: 'Original',
         completed: false,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
 
       vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(existingTodo) as any);
@@ -322,6 +433,7 @@ describe('KVStorage', () => {
         title: 'Original',
         completed: false,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
 
       vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(existingTodo) as any);
@@ -340,6 +452,7 @@ describe('KVStorage', () => {
         title: 'Original',
         completed: false,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
 
       vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(existingTodo) as any);
@@ -376,6 +489,7 @@ describe('KVStorage', () => {
         title: 'To Delete',
         completed: false,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
 
       vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo) as any);
@@ -391,6 +505,7 @@ describe('KVStorage', () => {
         title: 'To Delete',
         completed: false,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
 
       vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo) as any);
@@ -407,6 +522,7 @@ describe('KVStorage', () => {
         title: 'Test',
         completed: false,
         createdAt: '2025-10-27T10:30:00.000Z',
+        position: 0,
       };
 
       vi.mocked(mockKV.get).mockResolvedValue(JSON.stringify(todo) as any);

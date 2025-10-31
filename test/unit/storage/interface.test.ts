@@ -70,6 +70,7 @@ describe('IStorage Interface', () => {
           title: 'Test Todo',
           completed: false,
           createdAt: '2025-10-27T10:30:00.000Z',
+          position: 0,
         };
 
         expect(todo.id).toBeTruthy();
@@ -90,6 +91,7 @@ describe('IStorage Interface', () => {
           title: 'Test',
           completed: false,
           createdAt: '2025-10-27T10:30:00.000Z',
+          position: 0,
         };
 
         // After create, id should remain the same
@@ -118,6 +120,7 @@ describe('IStorage Interface', () => {
             title: 'Test',
             completed: false,
             createdAt: '2025-10-27T10:30:00.000Z',
+            position: 0,
           },
         ];
 
@@ -143,6 +146,7 @@ describe('IStorage Interface', () => {
           title: 'Found',
           completed: false,
           createdAt: '2025-10-27T10:30:00.000Z',
+          position: 0,
         };
         const notFoundResult: null = null;
 
@@ -157,6 +161,7 @@ describe('IStorage Interface', () => {
           title: 'Complete',
           completed: true,
           createdAt: '2025-10-27T10:30:00.000Z',
+          position: 0,
         };
 
         expect(todo).toHaveProperty('id');
@@ -185,6 +190,7 @@ describe('IStorage Interface', () => {
           title: 'Updated',
           completed: true,
           createdAt: '2025-10-27T10:30:00.000Z',
+          position: 0,
         };
         const notFoundResult: null = null;
 
@@ -202,6 +208,7 @@ describe('IStorage Interface', () => {
           title: 'Updated Title',
           completed: true,
           createdAt: originalCreatedAt,
+          position: 0,
         };
 
         // After update, id and createdAt should remain the same
