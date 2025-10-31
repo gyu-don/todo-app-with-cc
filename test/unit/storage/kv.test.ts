@@ -620,10 +620,7 @@ describe('KVStorage', () => {
       );
 
       // Verify todo1 (position 0) was NOT updated
-      expect(mockKV.put).not.toHaveBeenCalledWith(
-        'todos:id1',
-        expect.anything()
-      );
+      expect(mockKV.put).not.toHaveBeenCalledWith('todos:id1', expect.anything());
     });
   });
 

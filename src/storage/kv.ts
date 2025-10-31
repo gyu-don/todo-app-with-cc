@@ -176,9 +176,7 @@ export class KVStorage implements IStorage {
     // 自動割り当てが発生した場合、Workers KVに保存
     if (needsUpdate) {
       await Promise.all(
-        todos.map((todo: Todo) =>
-          this.kv.put(this.getKey(todo.id), JSON.stringify(todo))
-        )
+        todos.map((todo: Todo) => this.kv.put(this.getKey(todo.id), JSON.stringify(todo)))
       );
     }
 
